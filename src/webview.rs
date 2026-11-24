@@ -556,21 +556,36 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
         // Right-click menu on pages: same items as Edge's, drawn by the themed popup.
         if let Ok(w11) = wv.cast::<ICoreWebView2_11>() {
             let _ = w11.add_ContextMenuRequested(
-                &ContextMenuRequestedEventHandler::create(Box::new(move |_, args| {
+                &ContextMenuRequestedEventHandler::create(Box::new(move |sender, args| {
                     let Some(args) = args else { return Ok(()) };
                     let Ok(coll) = args.MenuItems() else { return Ok(()) };
-                    let items = context_items(&coll);
-                    if items.is_empty() {
-                        return Ok(());
+                    let mut items = context_items(&coll);
+                    // "Inspect element" is always there: Edge's own item (it selects the
+                    // clicked element in the developer tools), or ours if Edge left it out.
+                    let has_inspect = items.iter().any(|i| i.label == "Inspect element");
+                    if !has_inspect {
+                        if !items.is_empty() {
+                            items.push(popup::Item::sep());
+                        }
+                        items.push(popup::Item::new(OUR_INSPECT, "Inspect element").key("F12"));
                     }
                     let mut pt = windows::Win32::Foundation::POINT::default();
                     let _ = args.Location(&mut pt);
                     let deferral = args.GetDeferral()?;
                     args.SetHandled(true)?;
                     let anchor = page_to_screen(pt);
+                    let wv_for_tools = sender.clone();
                     popup::show("page", items, anchor, false, move |pick| {
-                        if let Some(cmd) = pick {
-                            let _ = args.SetSelectedCommandId(cmd as i32);
+                        match pick {
+                            Some(OUR_INSPECT) => {
+                                if let Some(w) = &wv_for_tools {
+                                    let _ = w.OpenDevToolsWindow();
+                                }
+                            }
+                            Some(cmd) => {
+                                let _ = args.SetSelectedCommandId(cmd as i32);
+                            }
+                            None => {}
                         }
                         let _ = deferral.Complete();
                     });
@@ -599,6 +614,9 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
     }
 }
 
+/// Our own "Inspect element" item (when Edge's menu has none).
+const OUR_INSPECT: i64 = 900_000_001;
+
 /// Edge's context-menu items -> themed popup items (same command ids).
 fn context_items(coll: &ICoreWebView2ContextMenuItemCollection) -> Vec<popup::Item> {
     let mut out = Vec::new();
@@ -617,6 +635,8 @@ fn context_items(coll: &ICoreWebView2ContextMenuItemCollection) -> Vec<popup::It
             }
             // "&Copy" -> "Copy" ("&&" stays "&").
             let label = get_str(|p| it.Label(p)).replace("&&", "\u{1}").replace('&', "").replace('\u{1}', "&");
+            // Edge calls it "Inspect"; it opens the developer tools on the clicked element.
+            let label = if get_str(|p| it.Name(p)) == "inspectElement" || label == "Inspect" { "Inspect element".to_string() } else { label };
             let mut id = 0i32;
             let _ = it.CommandId(&mut id);
             let (mut en, mut ch) = (BOOL(0), BOOL(0));

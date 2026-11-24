@@ -68,7 +68,7 @@ pub fn show_main() {
         Item::cmd(CMD_TOGGLE_THEME, if dark { "Light theme" } else { "Dark theme" }),
         Item::cmd(CMD_LOCK_SIZES, "Lock bar sizes").checked(locked),
         Item::new(SHOW_SAVED_ID, "Show saved tabs bar").checked(show_saved),
-        Item::cmd(CMD_SETTINGS, "Settings").key("Ctrl+,"),
+        Item::cmd(CMD_SETTINGS, "Settings").key("Alt+S"),
         Item::sub("Backup and import", crate::import::menu_items()),
         Item::cmd(CMD_OPEN_LOG, "Log"),
         Item::cmd(CMD_OPEN_SCRIPTS, "Open scripts folder"),

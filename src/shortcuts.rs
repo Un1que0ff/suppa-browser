@@ -25,6 +25,7 @@ pub fn map(vk: u32, ctrl: bool, shift: bool, alt: bool) -> Option<u16> {
         (true, true, false, v) if v == key('T') => CMD_REOPEN_TAB,
         (true, true, false, v) if v == key('N') => CMD_NEW_INCOGNITO,
         (true, false, false, 0xBC) => CMD_SETTINGS, // Ctrl+,
+        (false, false, true, v) if v == key('S') => CMD_SETTINGS, // Alt+S
         (true, false, false, v) if v == key('W') || v == VK_F4 => CMD_CLOSE_TAB,
         (true, false, false, VK_TAB) | (true, false, false, VK_NEXT) => CMD_NEXT_TAB,
         (true, true, false, VK_TAB) | (true, false, false, VK_PRIOR) => CMD_PREV_TAB,

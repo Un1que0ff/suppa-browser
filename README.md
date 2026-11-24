@@ -1,4 +1,4 @@
-﻿# Suppa Browser
+# Suppa Browser
 
 **A tiny, fast, private web browser for Windows — a single 3 MB `.exe` with a built-in ad blocker, Chrome extensions, tab groups and a fully customisable interface.**
 
@@ -125,7 +125,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - **Import bookmarks** from Chrome, Edge, Brave, Vivaldi, Opera or Firefox (found automatically) or from an exported bookmarks `.html` file.
 
 ### Everything else
-- Themed menus everywhere (≡, tabs, saved tabs, page right-click) and themed dialogs.
+- Themed menus everywhere (≡, tabs, saved tabs, page right-click) and themed dialogs. Right-click a page → **Inspect element** opens the developer tools on that element.
 - Make Suppa your **default browser** (Settings or the prompt on first start).
 - Remembers window size and position, full screen (`F11`), print, DevTools, downloads, task manager.
 - Your own user scripts: `scripts\userscripts\*.js` (with `// @match` patterns).
@@ -146,7 +146,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 | `F5`, `Ctrl+R` / `Ctrl+F5`, `Ctrl+Shift+R` | Reload / reload without cache |
 | `Alt+Left` / `Alt+Right` / `Alt+Home` | Back / forward / home |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Zoom in / out / reset |
-| `Ctrl+,` | Settings |
+| `Alt+S`, `Ctrl+,` | Settings |
 | `F11` | Full screen |
 | `Ctrl+J` / `Shift+Esc` | Downloads / task manager |
 | `Ctrl+P`, `Ctrl+F`, `F12` | Print, find, developer tools |
