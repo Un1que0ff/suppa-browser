@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- Suppa Browser - new tab page. {{SEARCH}} is replaced with the chosen search engine. -->
+<html><head><meta charset="utf-8"><title>New Tab</title>
+<meta name="color-scheme" content="light dark">
+<style>
+html,body{height:100%;margin:0;font-family:"Segoe UI",system-ui,sans-serif}
+body{display:flex;align-items:center;justify-content:center;background:#161616;color:#ececec}
+@media (prefers-color-scheme: light){body{background:#f2f2f2;color:#1c1c1c}}
+main{width:min(640px,90vw);text-align:center;margin-top:-12vh}
+h1{font-weight:600;font-size:40px;margin:0 0 24px;letter-spacing:-1px}
+h1 span{color:#b07cff}
+input{width:100%;box-sizing:border-box;font-size:17px;padding:13px 20px;border-radius:12px;
+ border:1px solid #383838;outline:none;background:#272727;color:inherit}
+@media (prefers-color-scheme: light){input{background:#fff;border-color:#d0d0d0}}
+input:focus{border-color:#b07cff}
+p{opacity:.55;font-size:13px;margin-top:18px}
+</style></head>
+<body><main>
+<h1>Suppa<span>.</span></h1>
+<form action="{{SEARCH}}" method="get"><input name="q" placeholder="Search the web" autocomplete="off" autofocus></form>
+<p>Ads and trackers are blocked. Background tabs sleep to save memory.</p>
+</main></body></html>

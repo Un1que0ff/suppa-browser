@@ -1,0 +1,294 @@
+/* Suppa Browser - interface style. Edit, then press "Update" in the browser. */
+:root {
+  /* dark theme (same palette as Aviatema Tools) */
+  --bg: #161616; --panel: #1f1f1f; --field: #272727; --btn: #2e2e2e; --btn-hover: #3b3b3b;
+  --fg: #ececec; --muted: #8e8e8e; --border: #383838; --trough: #2b2b2b;
+  --accent: #b07cff; --on-accent: #1c1c1c; --incognito: #5b4a86;
+  /* Row heights. Set by ui.js from the settings; drag the lines between rows to change them. */
+  --row1: 40px;   /* tabs (title bar) */
+  --row2: 46px;   /* address bar */
+  --row3: 30px;   /* saved tabs */
+  --ctl: calc(var(--row2) - 16px);   /* height of buttons / address field */
+  --pad: 16px;                       /* left/right padding of rows 2 and 3 */
+  /* Corner roundness (Settings -> Corner roundness). Everything follows --radius:
+     tabs = radius, buttons/address bar = radius-1, small items = radius-2/-3. */
+  --radius: 10px;
+  --r-btn: max(0px, calc(var(--radius) - 1px));
+  --r-sm: max(0px, calc(var(--radius) - 2px));
+  --r-xs: max(0px, calc(var(--radius) - 3px));
+}
+body.light {
+  --bg: #f2f2f2; --panel: #ffffff; --field: #ffffff; --btn: #e5e5e5; --btn-hover: #d8d8d8;
+  --fg: #1c1c1c; --muted: #6b6b6b; --border: #d0d0d0; --trough: #dcdcdc; --incognito: #6f5aa8;
+}
+
+* { box-sizing: border-box; }
+/* Tab colours follow the buttons unless changed in Settings -> Pro settings -> Colors.
+   (Declared on body so they use the light/dark values of body.) */
+body { --tab: var(--btn); --tab-fg: var(--muted); }
+html, body {
+  margin: 0; height: 100%; overflow: hidden; user-select: none;
+  background: var(--bg); color: var(--fg);
+  font: 600 10pt "Segoe UI", system-ui, sans-serif;
+}
+svg { display: block; }
+button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- row 1: tabs (this is the title bar) ---------- */
+/* Row positions (--t-tabs / --t-nav / --t-saved) are set by ui.js from the
+   chosen order (Settings -> Layout). Each row has its own background. */
+#row1 {
+  position: absolute; left: 0; right: 0; top: var(--t-tabs, 0px); height: var(--row1);
+  display: flex; align-items: flex-end; padding-left: 14px;
+  background: var(--bg); box-shadow: inset 0 -1px var(--border);
+}
+/* Tabs below the address bar: they hang from the top and point up at it. */
+body.tabs-below #row1 { align-items: flex-start; box-shadow: inset 0 1px var(--border); }
+body.tabs-below #tabs { align-items: flex-start; }
+body.tabs-below .tab { border-radius: 0 0 var(--radius) var(--radius); }
+body.tabs-below #newtab { margin: 3px 0 0 3px; }
+/* The tab strip only takes the room it needs, so "+" sits right after the last tab. */
+#tabs { display: flex; align-items: flex-end; min-width: 0; flex: 0 1 auto; overflow: hidden; height: 100%; }
+#drag { flex: 1 1 auto; height: 100%; min-width: 40px; }
+/* Tab width is set by ui.js: full width until the row is full, then all shrink evenly. */
+.tab {
+  position: relative; display: flex; align-items: center; gap: 7px; overflow: hidden;
+  flex: 0 0 auto; width: 220px; height: calc(var(--row1) - 10px); margin-right: 3px; padding: 0 8px 0 12px;
+  background: var(--tab); color: var(--tab-fg);
+  border-radius: var(--radius) var(--radius) 0 0; cursor: default; white-space: nowrap;
+}
+.tab { transition: width .18s ease, transform .18s ease, opacity .18s ease, padding .18s ease, margin .18s ease; }
+.tab:hover { background: var(--btn-hover); }
+/* closing: shrinks away (ui.js removes it afterwards) */
+.tab.closing { opacity: 0; padding-left: 0; padding-right: 0; margin-right: 0; pointer-events: none; z-index: 0; }
+/* being dragged: follows the mouse directly, above the others */
+.tab.dragging { transition: width .18s ease, opacity .18s ease; z-index: 3; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+/* dragged outside the window: will open in a new window */
+.tab.detaching { opacity: .45; }
+body.detaching, body.detaching * { cursor: copy !important; }
+.tab.active { height: calc(var(--row1) - 6px); background: var(--accent); color: var(--on-accent); z-index: 1; }
+.tab .fav { width: 16px; height: 16px; flex: 0 0 16px; object-fit: contain; }
+.tab .title { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
+.tab .x {
+  flex: 0 0 18px; height: 18px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; opacity: 0; color: inherit;
+}
+.tab:hover .x, .tab.active .x { opacity: .75; }
+.tab .x:hover { opacity: 1; background: rgba(127,127,127,.35); }
+.tab .spin {
+  width: 14px; height: 14px; flex: 0 0 14px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite;
+}
+.tab.sleep .title, .tab.unloaded .title { font-style: italic; }
+.tab.unloaded:not(.active) { opacity: .65; }
+/* incognito tabs */
+.tab.inc { background: var(--incognito); color: #e9e2ff; }
+.tab.inc.active { background: var(--incognito); color: #fff; box-shadow: inset 0 -3px 0 var(--accent); }
+.tab .inc-ico { width: 16px; height: 16px; flex: 0 0 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#newtab {
+  flex: 0 0 auto; width: 30px; height: min(28px, calc(var(--row1) - 10px)); padding: 0; margin: 0 0 3px 3px;
+  display: flex; align-items: center; justify-content: center; border-radius: var(--r-btn);
+}
+
+/* ---------- tab groups ---------- */
+.gchip {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px; max-width: 160px;
+  height: calc(var(--row1) - 12px); margin: 0 3px 3px 0; padding: 0 10px;
+  border-radius: var(--r-btn); background: var(--g); font-weight: 600; cursor: default; white-space: nowrap;
+}
+.gchip .gname { overflow: hidden; text-overflow: ellipsis; line-height: 1; }
+.gchip .gname:empty { display: none; }
+.gchip .gcount:empty { display: none; }
+/* the count sits exactly in the middle of the label */
+.gchip .gcount { opacity: .85; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.gchip.noname { padding: 0; min-width: 26px; justify-content: center; }
+.gchip.collapsed { opacity: .85; }
+.gchip:hover { filter: brightness(1.1); }
+.gchip input.rename { width: 110px; height: 20px; }
+body.tabs-below .gchip { margin: 3px 3px 0 0; }
+/* tabs of a group use the group's colour as their accent: tinted, and the
+   selected one filled with it (text colour set by ui.js, like the accent) */
+.tab.grouped { background: color-mix(in srgb, var(--g) 28%, var(--tab)); color: var(--fg); }
+.tab.grouped:hover { background: color-mix(in srgb, var(--g) 42%, var(--tab)); }
+.tab.grouped.active { background: var(--g); color: var(--g-fg); }
+.tab.gcollapsed { display: none; }
+/* dragging a tab and holding it over another one: they will be grouped */
+.tab.group-target { outline: 2px solid var(--gt, var(--accent)); outline-offset: -2px; }
+body.side .gchip { height: 28px; margin: 4px 0; max-width: none; }
+
+/* window buttons (minimize / maximize / close), like Windows */
+#winctl { display: flex; align-self: flex-start; height: min(32px, var(--row1)); flex: 0 0 auto; }
+#winctl button {
+  width: 46px; height: 100%; border: none; border-radius: 0; background: transparent; color: var(--fg);
+  font: 10px "Segoe MDL2 Assets", "Segoe Fluent Icons"; padding: 0;
+}
+#winctl button:hover { background: var(--btn-hover); }
+#winctl #close:hover { background: #e81123; color: #fff; }
+/* Tabs not on the top row: the window buttons sit at the right end of the top
+   row, in a rounded island so they stand out from the toolbar. */
+#winctl.island {
+  align-self: center; height: var(--ctl); margin-left: 6px; overflow: hidden;
+  background: var(--btn); border: 1px solid var(--border); border-radius: var(--r-btn);
+}
+#winctl.island button { width: 40px; }
+#row3 #winctl.island { height: calc(var(--row3) - 6px); }
+
+/* resize handles on the top edge (hidden when maximized) */
+.grip { position: absolute; top: 0; height: 5px; z-index: 10; }
+#grip-top { left: 8px; right: 8px; cursor: n-resize; }
+#grip-tl { left: 0; width: 8px; cursor: nw-resize; }
+#grip-tr { right: 0; width: 8px; cursor: ne-resize; }
+body.max .grip, body.bar-bottom .grip { display: none; }
+
+#frame-top { display: none; }
+/* line between the bar and the page (above the bar when it is at the bottom) */
+body::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--border); z-index: 4;
+}
+body.bar-bottom::after { top: 0; bottom: auto; }
+
+/* ---------- row 2: navigation + address bar ---------- */
+#row2 {
+  position: absolute; left: 0; right: 0; padding: 0 var(--pad); top: var(--t-nav, 40px); height: var(--row2);
+  display: flex; gap: 6px; align-items: center; background: var(--panel);
+}
+#addr-box {
+  flex: 1 1 auto; height: var(--ctl); min-width: 50px; display: flex; align-items: center;
+  background: var(--field); border: 1px solid var(--border); border-radius: var(--r-btn); overflow: hidden;
+}
+#addr-box:focus-within { border-color: var(--accent); }
+#addr {
+  flex: 1 1 auto; height: 100%; min-width: 0; background: transparent; color: var(--fg); border: none;
+  padding: 0 12px; font: 400 10pt "Segoe UI", system-ui, sans-serif; outline: none; user-select: text;
+}
+#addr::selection { background: var(--accent); color: var(--on-accent); }
+#addr::placeholder { color: var(--muted); }
+#star {
+  flex: 0 0 auto; width: 30px; height: calc(var(--ctl) - 6px); margin-right: 2px; padding: 0; border: none; border-radius: var(--r-xs);
+  display: flex; align-items: center; justify-content: center; background: transparent; color: var(--muted);
+}
+#star svg { width: 17px; height: 17px; }
+#star:hover { background: var(--btn-hover); color: var(--fg); }
+#star.on { color: var(--accent); }
+#star.on svg { fill: currentColor; }
+#star:disabled { visibility: hidden; }
+#inc-badge {
+  display: none; margin-left: 4px; padding: 2px 9px; border-radius: var(--r-xs);
+  background: var(--incognito); color: #fff; font-size: 9pt;
+}
+body.inc #inc-badge { display: inline-block; }
+
+/* extension buttons right of the address bar */
+#exts { display: flex; gap: 2px; align-items: center; flex: 0 0 auto; }
+#exts:empty { display: none; }
+#exts button {
+  width: var(--ctl); height: var(--ctl); padding: 0; border: none; background: transparent;
+  display: flex; align-items: center; justify-content: center; border-radius: var(--r-btn);
+}
+#exts button:hover { background: var(--btn-hover); }
+#exts img { width: 18px; height: 18px; object-fit: contain; }
+#exts .letter {
+  width: 18px; height: 18px; border-radius: 5px; background: var(--btn); color: var(--fg);
+  font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;
+}
+
+/* ---------- row 3: saved tabs ---------- */
+#row3 {
+  position: absolute; left: 0; right: 0; padding: 0 var(--pad);
+  top: var(--t-saved, 86px); height: var(--row3); display: none; align-items: center; background: var(--panel);
+}
+body.saved #row3 { display: flex; }
+#saved { display: flex; gap: 2px; align-items: center; min-width: 0; flex: 1 1 auto; height: 100%; overflow: hidden; }
+.saved-item {
+  display: flex; align-items: center; gap: 6px; height: calc(var(--row3) - 4px); padding: 0 10px; border-radius: var(--r-sm);
+  max-width: 190px; flex: 0 0 auto; font-weight: 400; color: var(--fg); cursor: default;
+}
+.saved-item { transition: transform .18s ease, background .12s ease; }
+.saved-item:hover { background: var(--btn-hover); }
+.saved-item .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-item img, .saved-item svg { width: 16px; height: 16px; flex: 0 0 16px; }
+.saved-item.folder svg { color: var(--accent); }
+.saved-item.dragging { transition: none; z-index: 3; position: relative; background: var(--btn); box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+.saved-item.drop-into { background: var(--accent); color: var(--on-accent); }
+.saved-item.drop-into svg { color: var(--on-accent); }
+.saved-hint { color: var(--muted); font-weight: 400; font-size: 9pt; padding-left: 8px; }
+#ins { position: absolute; top: 3px; bottom: 3px; width: 2px; border-radius: 1px; background: var(--accent); display: none; }
+.ghost {
+  position: fixed; z-index: 30; pointer-events: none; opacity: .9;
+  background: var(--btn); border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+input.rename {
+  height: 22px; width: 150px; background: var(--field); color: var(--fg); border: 1px solid var(--accent);
+  border-radius: var(--r-xs); padding: 0 6px; font: 400 10pt "Segoe UI", system-ui, sans-serif; outline: none;
+}
+
+/* ---------- row resize handles (thin lines under each row) ---------- */
+.sizer { position: absolute; left: 0; right: 0; height: 5px; z-index: 5; cursor: ns-resize; }
+.sizer:hover, .sizer.on { background: var(--accent); opacity: .5; }
+/* each line sits on the lower edge of its row (rows can be in any order) */
+#sz-tabs { top: calc(var(--t-tabs, 0px) + var(--row1) - 3px); }
+#sz-nav { top: calc(var(--t-nav, 40px) + var(--row2) - 3px); }
+#sz-saved { top: calc(var(--t-saved, 86px) + var(--row3) - 3px); display: none; }
+body.saved #sz-saved { display: block; }
+/* Locked (≡ -> Lock bar sizes): no handles at all - !important beats the #sz-saved rule above. */
+body.locked .sizer { display: none !important; }
+
+/* ---------- bar on the left / right: one column (Settings -> Layout) ----------
+   Sections stack top to bottom in the chosen order; the tab list takes the
+   free height and scrolls. */
+#shead, #sz-side { display: none; }
+body.side { display: flex; flex-direction: column; }
+body.side #shead {
+  display: flex; flex: 0 0 auto; height: 40px; align-items: center; justify-content: flex-end;
+  padding: 0 8px; background: var(--bg); box-shadow: inset 0 -1px var(--border);
+}
+body.side #row1, body.side #row2, body.side #row3 { position: static; height: auto; box-shadow: none; }
+body.side #row1 {
+  order: var(--o-tabs); flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  flex-direction: column; align-items: stretch; padding: 8px; background: var(--bg);
+}
+body.side #tabs { flex-direction: column; align-items: stretch; height: auto; overflow: visible; flex: 0 0 auto; }
+body.side .tab, body.side .tab.active {
+  width: auto !important; height: 34px; margin: 0 0 4px 0; border-radius: var(--r-btn); flex: 0 0 auto;
+}
+body.side #newtab { width: 100%; height: 30px; margin: 2px 0 0 0; }
+body.side #drag { display: none; }
+body.side #row2 {
+  order: var(--o-nav); flex: 0 0 auto; flex-wrap: wrap; padding: 8px; row-gap: 8px;
+  box-shadow: inset 0 -1px var(--border);
+}
+body.side #addr-box { order: 99; flex: 1 1 100%; }      /* address on its own line */
+body.side #exts { margin-left: auto; }
+body.side #row3 {
+  order: var(--o-saved); flex: 0 1 auto; max-height: 40%; overflow-y: auto; padding: 6px 8px;
+  flex-direction: column; align-items: stretch; box-shadow: inset 0 -1px var(--border);
+}
+body.side #saved { flex-direction: column; align-items: stretch; height: auto; gap: 2px; overflow: visible; }
+body.side .saved-item { max-width: none; height: 30px; flex: 0 0 auto; }
+body.side .sizer { display: none; }
+body.side #sz-side { display: block; position: absolute; top: 0; bottom: 0; width: 5px; height: auto; cursor: ew-resize; z-index: 6; }
+body.side-left #sz-side { right: 0; }
+body.side-right #sz-side { left: 0; }
+body.side.locked #sz-side { display: none; }
+/* line between the column and the page */
+body.side::after { top: 0; bottom: 0; width: 1px; height: auto; left: auto; right: 0; }
+body.side-right::after { left: 0; right: auto; }
+
+/* ---------- buttons (same look as the Qt app) ---------- */
+button {
+  height: 28px; padding: 0 14px; background: var(--btn); color: var(--fg);
+  border: 1px solid var(--border); border-radius: var(--r-btn); font: 400 10pt "Segoe UI", system-ui, sans-serif;
+  cursor: default; white-space: nowrap; outline: none;
+}
+button:hover { background: var(--btn-hover); }
+button:disabled { color: var(--muted); background: var(--btn); }
+button.nav { width: calc(var(--ctl) + 2px); height: var(--ctl); padding: 0; display: flex; align-items: center; justify-content: center; }
+#menu { height: var(--ctl); padding: 0 9px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+#menu .upd { display: none; }
+/* "Update ≡": changes are waiting (scripts folder or Rust code) */
+#menu.hot { background: transparent; color: var(--accent); border-color: var(--accent); font-weight: 600; }
+#menu.hot .upd, #menu.busy .upd { display: inline; }
+#menu.hot:hover { background: var(--accent); color: var(--on-accent); }
+#menu.busy { color: var(--muted); }

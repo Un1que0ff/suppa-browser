@@ -1,0 +1,5 @@
+# build output (the exe is published on the Releases page)
+/target/
+/dist/
+*.part
+*.log

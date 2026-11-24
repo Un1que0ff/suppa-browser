@@ -1,0 +1,5 @@
+! Your own ad-block rules (EasyList / uBlock Origin syntax). Press "Update" after editing.
+! Examples:
+!   ||annoying-ads.example.com^          block a whole domain
+!   example.com##.newsletter-popup       hide an element on one site
+!   @@||example.com^$document            never block anything on example.com

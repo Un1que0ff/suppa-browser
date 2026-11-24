@@ -1,0 +1,532 @@
+<!doctype html>
+<!-- Suppa Browser - Settings tab. Edit, then press "Update" in the browser. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<style>
+  :root {
+    --bg: #161616; --panel: #1f1f1f; --field: #272727; --btn: #2e2e2e; --btn-hover: #3b3b3b;
+    --fg: #ececec; --muted: #8e8e8e; --border: #383838; --accent: #b07cff; --on-accent: #1c1c1c;
+    /* Corner roundness, same setting as the bar and menus */
+    --radius: 10px; --r-btn: max(0px, calc(var(--radius) - 1px)); --r-box: calc(var(--radius) + 4px);
+  }
+  body { --tab: var(--btn); --tab-fg: var(--muted); --incognito: #5b4a86; }
+  body.light { --incognito: #6f5aa8; }
+  body.light {
+    --bg: #f2f2f2; --panel: #ffffff; --field: #ffffff; --btn: #e5e5e5; --btn-hover: #d8d8d8;
+    --fg: #1c1c1c; --muted: #6b6b6b; --border: #d0d0d0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 10.5pt "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 24px 60px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 18px; }
+  section { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-box); padding: 6px 18px; margin-bottom: 16px; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 4px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--border); min-height: 48px; }
+  h2 + .row { border-top: none; }
+  .row .label { flex: 1 1 auto; }
+  .row .label small { display: block; color: var(--muted); font-size: 9pt; margin-top: 2px; }
+  button {
+    height: 30px; padding: 0 14px; background: var(--btn); color: var(--fg);
+    border: 1px solid var(--border); border-radius: var(--r-btn); font: inherit; cursor: pointer; white-space: nowrap;
+  }
+  button:hover { background: var(--btn-hover); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.danger:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
+  input[type=text], input[type=number], select {
+    height: 30px; background: var(--field); color: var(--fg); border: 1px solid var(--border);
+    border-radius: var(--r-btn); padding: 0 10px; font: inherit; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input[type=number] { width: 80px; }
+  #home-custom { width: 260px; }
+  /* switch */
+  .sw { position: relative; width: 40px; height: 22px; flex: 0 0 auto; }
+  .sw input { opacity: 0; width: 0; height: 0; }
+  .sw span { position: absolute; inset: 0; background: var(--btn); border: 1px solid var(--border); border-radius: 11px; transition: .15s; cursor: pointer; }
+  .sw span::before { content: ""; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: var(--muted); border-radius: 50%; transition: .15s; }
+  .sw input:checked + span { background: var(--accent); border-color: var(--accent); }
+  .sw input:checked + span::before { transform: translateX(18px); background: var(--on-accent); }
+  /* accent swatches */
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  .swatch.sel { border-color: var(--fg); }
+  .swatch.cycle { background: conic-gradient(#b07cff, #4cd37b, #3cd6e0, #ffd43b, #ff8a8a, #5b9dff, #ff9a3c, #b07cff); }
+  input[type=color] { width: 34px; height: 30px; border: 1px solid var(--border); border-radius: var(--r-btn); background: var(--field); padding: 2px; cursor: pointer; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--btn); border: 1px solid var(--border); border-radius: var(--r-btn); padding: 3px 4px 3px 10px; display: inline-flex; gap: 6px; align-items: center; }
+  .chip button { height: 22px; padding: 0 7px; border-radius: 7px; }
+  .muted { color: var(--muted); }
+  /* Sliders look like the switches: pill track, accent fill up to a round knob. */
+  /* The track is a pill; the knob is a dot with a round accent ring, and its
+     shadow paints the accent to its left - so the coloured part always ends in
+     a curve around the knob, exactly like a switch that is on. */
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 170px; height: 22px; margin: 0;
+    background: var(--btn); border-radius: 11px; overflow: hidden; cursor: pointer; --p: 0.5;
+  }
+  input[type=range]:focus { outline: none; }
+  input[type=range]::-webkit-slider-runnable-track { height: 22px; background: transparent; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 22px; height: 22px; margin-top: 0; box-sizing: border-box;
+    border-radius: 50%; border: 3px solid var(--accent); background: var(--on-accent);
+    box-shadow: -411px 0 0 400px var(--accent);
+  }
+  input[type=range]:hover::-webkit-slider-thumb { filter: brightness(1.15); }
+  .radius-preview { width: 46px; height: 26px; border: 2px solid var(--accent); border-radius: var(--radius); }
+  /* Pro settings */
+  details.pro { margin-bottom: 16px; }
+  details.pro > summary {
+    cursor: pointer; list-style: none; padding: 12px 18px; border: 1px solid var(--border); border-radius: var(--r-box);
+    background: var(--panel); font-weight: 600; user-select: none;
+  }
+  details.pro > summary::before { content: "▸  "; color: var(--accent); }
+  details.pro[open] > summary { margin-bottom: 12px; }
+  details.pro[open] > summary::before { content: "▾  "; }
+  .swatch.win { position: relative; }
+  /* Windows logo (4 squares), drawn so it sits exactly in the middle */
+  .swatch.win::after {
+    content: ""; position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='white'%3E%3Crect x='0' y='0' width='5.5' height='5.5'/%3E%3Crect x='6.5' y='0' width='5.5' height='5.5'/%3E%3Crect x='0' y='6.5' width='5.5' height='5.5'/%3E%3Crect x='6.5' y='6.5' width='5.5' height='5.5'/%3E%3C/svg%3E") center / 12px 12px no-repeat; /* even size: exactly centred in the 22px circle */
+  }
+  .reset { height: 26px; padding: 0 10px; font-size: 9pt; }
+  .reset[hidden] { display: none; }
+  code { font: 9pt Consolas, monospace; color: var(--muted); word-break: break-all; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Settings</h1>
+
+  <section>
+    <h2>Appearance</h2>
+    <div class="row">
+      <div class="label">Dark theme</div>
+      <label class="sw"><input type="checkbox" id="dark"><span></span></label>
+    </div>
+    <div class="row">
+      <div class="label">Show saved tabs bar<small>Under the address bar; right-click a tab and choose "Save" to add it</small></div>
+      <label class="sw"><input type="checkbox" id="saved_bar"><span></span></label>
+    </div>
+    <div class="row">
+      <div class="label">Accent colour<small>Colour of the selected tab, buttons and highlights</small></div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <div class="row">
+      <div class="label">Text on accent colour<small>Text and icons on the selected tab, main buttons and switch knobs</small></div>
+      <div id="on-accent" style="display:flex;gap:6px">
+        <button data-v="auto">Auto</button>
+        <button data-v="black">Black</button>
+        <button data-v="white">White</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">Interface scale<small>Size of tabs, address bar, saved tabs, menus and dialogs. Web pages keep their own zoom (Ctrl + / -)</small></div>
+      <input type="range" id="ui_scale" min="75" max="150" step="5">
+      <span id="ui_scale-val" class="muted" style="width:44px;text-align:right"></span>
+      <button class="reset" id="ui_scale-reset" title="Back to 100%">100%</button>
+    </div>
+    <div class="row">
+      <div class="label">Corner roundness<small>Tabs, buttons, address bar, menus and dialogs. 0 = square corners</small></div>
+      <div class="radius-preview" id="radius-preview"></div>
+      <input type="range" id="radius" min="0" max="20" step="1">
+      <span id="radius-val" class="muted" style="width:38px;text-align:right"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Default browser</h2>
+    <div class="row">
+      <div class="label" id="default-label">Default browser<small id="default-note"></small></div>
+      <button class="primary" id="default-btn" data-action="make_default">Make Suppa the default</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Layout</h2>
+    <div class="row">
+      <div class="label">Bar position<small>Tabs, address bar and saved tabs at the top, bottom, or as a column on the left or right</small></div>
+      <div id="bar-pos" style="display:flex;gap:6px">
+        <button data-v="top">Top</button>
+        <button data-v="bottom">Bottom</button>
+        <button data-v="left">Left</button>
+        <button data-v="right">Right</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">Order of the rows<small>Use the arrows to move a row up or down</small><div id="row-order" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div></div>
+      <button class="reset" id="order-reset">Default order</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Start page and search</h2>
+    <div class="row">
+      <div class="label">New tabs and Home button open</div>
+      <select id="home-kind">
+        <option value="https://www.google.com/">Google</option>
+        <option value="https://suppa.newtab/">Suppa start page</option>
+        <option value="custom">Custom address...</option>
+      </select>
+      <input type="text" id="home-custom" placeholder="https://..." spellcheck="false">
+    </div>
+    <div class="row">
+      <div class="label">Search engine (address bar)</div>
+      <select id="search"></select>
+    </div>
+  </section>
+
+  <section>
+    <h2>Privacy</h2>
+    <div class="row">
+      <div class="label">Block ads and trackers</div>
+      <label class="sw"><input type="checkbox" id="adblock"><span></span></label>
+    </div>
+    <div class="row">
+      <div class="label">Accept cookie popups automatically<small>Clicks "Accept all" on cookie banners (edit scripts\cookies.js to change how)</small></div>
+      <label class="sw"><input type="checkbox" id="cookies"><span></span></label>
+    </div>
+    <div class="row">
+      <div class="label">Save passwords<small>Offers to save passwords and fills them in next time</small></div>
+      <label class="sw"><input type="checkbox" id="passwords"><span></span></label>
+    </div>
+    <div class="row">
+      <div class="label">Fill in forms (names, addresses)</div>
+      <label class="sw"><input type="checkbox" id="autofill"><span></span></label>
+    </div>
+    <div class="row" id="allow-row">
+      <div class="label">Ads allowed on these sites<div class="chips" id="allow"></div></div>
+    </div>
+    <div class="row">
+      <div class="label">Incognito tab<small>Nothing is saved: no history, cookies or passwords (Ctrl+Shift+N)</small></div>
+      <button data-action="incognito">Open incognito tab</button>
+    </div>
+    <div class="row">
+      <div class="label">Saved passwords</div>
+      <button class="danger" data-action="clear_passwords">Delete saved passwords</button>
+    </div>
+    <div class="row">
+      <div class="label">Browsing data<small>History, cookies, cache, passwords, site data</small></div>
+      <button class="danger" data-action="clear_data">Clear browsing data</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tabs and memory</h2>
+    <div class="row">
+      <div class="label">Reopen tabs from last time</div>
+      <label class="sw"><input type="checkbox" id="restore"><span></span></label>
+    </div>
+    <div class="row">
+      <div class="label">Freeze background tabs after (minutes)<small>Frozen tabs use no CPU</small></div>
+      <input type="number" id="sleep" min="1" max="600">
+    </div>
+    <div class="row">
+      <div class="label">Unload background tabs after (minutes)<small>Frees their memory; 0 = never</small></div>
+      <input type="number" id="discard" min="0" max="1440">
+    </div>
+  </section>
+
+  <section>
+    <h2>Extensions</h2>
+    <div class="row">
+      <div class="label"><span id="ext-list" class="muted">No extensions</span></div>
+      <button data-action="store">Chrome Web Store</button>
+      <button data-action="load_unpacked">Load folder...</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Backup and import</h2>
+    <div class="row">
+      <div class="label">Backup<small>Settings, saved tabs, open tabs, bar sizes, scripts, extensions, saved passwords and form data in one .zip. Passwords can be restored on this Windows account.</small></div>
+      <button class="primary" data-action="backup">Back up...</button>
+      <button data-action="restore">Restore...</button>
+    </div>
+    <div class="row">
+      <div class="label">Import bookmarks<small>From Chrome, Edge, Brave, Vivaldi, Opera or Firefox on this PC, or from an exported .html file. They go to the saved tabs bar.</small></div>
+      <button data-action="import">Import...</button>
+    </div>
+  </section>
+
+  <details class="pro" id="pro">
+    <summary>Pro settings</summary>
+    <section>
+      <h2>Colors <span class="muted" id="colors-theme" style="text-transform:none;letter-spacing:0"></span></h2>
+      <div id="color-list"></div>
+      <div class="row">
+        <div class="label">Reset all colours of this theme<small>Light and dark theme keep their own colours. The accent colour is above, under Appearance.</small></div>
+        <button class="danger" id="colors-reset">Reset all</button>
+      </div>
+    </section>
+  </details>
+
+  <section>
+    <h2>Update and files</h2>
+    <div class="row">
+      <div class="label">Update<small>Restarts Suppa and loads changes from the scripts folder; rebuilds Suppa.exe if the Rust code changed</small></div>
+      <button class="primary" data-action="update">Update now</button>
+    </div>
+    <div class="row">
+      <div class="label">Scripts folder<small><code id="scripts-path"></code></small></div>
+      <button data-action="open_scripts">Open</button>
+    </div>
+    <div class="row">
+      <div class="label">Settings and data folder<small><code id="data-path"></code></small></div>
+      <button data-action="open_data">Open</button>
+    </div>
+    <div class="row">
+      <div class="label">Ad-block filter lists</div>
+      <button data-action="update_lists">Update now</button>
+      <button data-action="log">Open log</button>
+    </div>
+    <div class="row">
+      <div class="label muted" id="about"></div>
+    </div>
+  </section>
+</main>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const post = (m) => window.chrome.webview.postMessage(m);
+const set = (key, value) => post({ cmd: 'set', key, value });
+const COLORS = ['#b07cff', '#4cd37b', '#3cd6e0', '#ffd43b', '#ff8a8a', '#5b9dff', '#ff9a3c', '#ff6fb5'];
+let S = null;
+
+function onColor(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 160 ? '#1c1c1c' : '#ffffff';
+}
+
+function renderSwatches() {
+  const box = $('swatches');
+  box.textContent = '';
+  const cyc = document.createElement('button');
+  cyc.className = 'swatch cycle' + (S.accent === 'cycle' ? ' sel' : '');
+  cyc.title = 'Different colour for each tab';
+  cyc.onclick = () => set('accent', 'cycle');
+  box.appendChild(cyc);
+  const win = document.createElement('button');
+  win.className = 'swatch win' + (S.accent === 'windows' ? ' sel' : '');
+  win.style.background = S.windows_accent || '#0078d4';
+  win.title = 'Windows accent colour (follows your Windows settings)';
+  win.onclick = () => set('accent', 'windows');
+  box.appendChild(win);
+  for (const c of COLORS) {
+    const b = document.createElement('button');
+    b.className = 'swatch' + (S.accent === c ? ' sel' : '');
+    b.style.background = c;
+    b.title = c;
+    b.onclick = () => set('accent', c);
+    box.appendChild(b);
+  }
+  const pick = document.createElement('input');
+  pick.type = 'color';
+  pick.title = 'Any colour';
+  pick.value = /^#[0-9a-f]{6}$/i.test(S.accent) ? S.accent : '#b07cff';
+  pick.onchange = () => set('accent', pick.value);
+  box.appendChild(pick);
+}
+
+function render() {
+  document.body.classList.toggle('light', !S.dark);
+  applyColors(S.colors);
+  const acc = S.accent === 'cycle' ? '#b07cff' : S.accent === 'windows' ? S.windows_accent : S.accent;
+  document.body.style.setProperty('--accent', acc);
+  document.body.style.setProperty('--on-accent', S.on_accent === 'black' ? '#1c1c1c' : S.on_accent === 'white' ? '#ffffff' : onColor(acc));
+  document.querySelectorAll('#on-accent button').forEach((b) => b.classList.toggle('primary', b.dataset.v === (S.on_accent || 'auto')));
+  for (const k of ['dark', 'adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar']) $(k).checked = !!S[k];
+  setRadius(S.radius, false);
+  if (document.activeElement !== $('ui_scale')) $('ui_scale').value = S.ui_scale;
+  $('ui_scale-val').textContent = S.ui_scale + '%';
+  paintRange($('ui_scale'));
+  paintRange($('radius'));
+  renderLayout();
+  renderColors();
+  if (document.activeElement !== $('sleep')) $('sleep').value = S.sleep;
+  if (document.activeElement !== $('discard')) $('discard').value = S.discard;
+  renderSwatches();
+  const kinds = [...$('home-kind').options].map((o) => o.value);
+  const kind = kinds.includes(S.home) ? S.home : 'custom';
+  $('home-kind').value = kind;
+  $('home-custom').style.display = kind === 'custom' ? '' : 'none';
+  if (document.activeElement !== $('home-custom')) $('home-custom').value = kind === 'custom' ? S.home : '';
+  const sel = $('search');
+  if (!sel.options.length) S.engines.forEach((n, i) => sel.add(new Option(n, i)));
+  sel.value = S.search;
+  const allow = $('allow');
+  allow.textContent = '';
+  $('allow-row').style.display = S.allow.length ? '' : 'none';
+  for (const host of S.allow) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = host;
+    const x = document.createElement('button');
+    x.textContent = '×';
+    x.title = 'Block ads here again';
+    x.onclick = () => set('allow_remove', host);
+    chip.appendChild(x);
+    allow.appendChild(chip);
+  }
+  $('ext-list').textContent = S.extensions.length ? S.extensions.join(', ') : 'No extensions installed';
+  $('scripts-path').textContent = S.scripts;
+  $('data-path').textContent = S.data;
+  $('default-note').textContent = S.is_default
+    ? 'Suppa is your default browser - links from other apps open here'
+    : 'Links from other apps open in another browser. Windows will ask you to choose Suppa.';
+  $('default-btn').style.display = S.is_default ? 'none' : '';
+  $('about').textContent = 'Suppa Browser ' + S.version + (S.engine ? ' · WebView2 ' + S.engine : '');
+}
+
+// ---- Pro settings -> Colors ----
+const COLORS_ALL = [
+  ['bg', 'Window background', 'Behind the tabs'],
+  ['panel', 'Toolbar and menus', 'Address bar row, saved tabs, menus, dialogs, these settings'],
+  ['field', 'Address bar', 'Inside the address field'],
+  ['btn', 'Buttons', 'Back, forward, reload, +, ≡'],
+  ['btn-hover', 'Hover', 'Buttons and items under the mouse'],
+  ['tab', 'Tabs', 'Tabs that are not selected (the selected tab uses the accent colour)'],
+  ['tab-fg', 'Tab text', 'Text of tabs that are not selected'],
+  ['fg', 'Text', 'Main text everywhere'],
+  ['muted', 'Secondary text', 'Hints, shortcuts, disabled items'],
+  ['border', 'Lines and borders', 'Outlines, separators, the line above the page'],
+  ['incognito', 'Incognito tabs', 'Tabs and badge of incognito tabs'],
+];
+function applyColors(c) {
+  for (const [n] of COLORS_ALL) {
+    if (c && c[n]) document.body.style.setProperty('--' + n, c[n]);
+    else document.body.style.removeProperty('--' + n);
+  }
+}
+function toHex(v) {
+  v = (v || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(v)) return v.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(v)) return '#' + [...v.slice(1)].map((x) => x + x).join('').toLowerCase();
+  const m = v.match(/(\d+),\s*(\d+),\s*(\d+)/);
+  return m ? '#' + [m[1], m[2], m[3]].map((x) => (+x).toString(16).padStart(2, '0')).join('') : '#000000';
+}
+let colorTimer = 0;
+function renderColors() {
+  const box = $('color-list');
+  $('colors-theme').textContent = '- ' + (S.dark ? 'dark' : 'light') + ' theme';
+  if (!box.childElementCount) {
+    for (const [name, label, hint] of COLORS_ALL) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.dataset.name = name;
+      const lab = document.createElement('div');
+      lab.className = 'label';
+      lab.textContent = label;
+      const small = document.createElement('small');
+      small.textContent = hint;
+      lab.appendChild(small);
+      const inp = document.createElement('input');
+      inp.type = 'color';
+      inp.addEventListener('input', () => {
+        document.body.style.setProperty('--' + name, inp.value);   // instant preview here
+        clearTimeout(colorTimer);
+        colorTimer = setTimeout(() => set('color', { name, hex: inp.value }), 80);
+      });
+      const reset = document.createElement('button');
+      reset.className = 'reset';
+      reset.textContent = 'Reset';
+      reset.addEventListener('click', () => set('color', { name, hex: null }));
+      row.append(lab, inp, reset);
+      box.appendChild(row);
+    }
+  }
+  const cs = getComputedStyle(document.body);
+  for (const row of box.children) {
+    const name = row.dataset.name;
+    const inp = row.querySelector('input');
+    if (document.activeElement !== inp) inp.value = toHex(cs.getPropertyValue('--' + name));
+    row.querySelector('.reset').hidden = !(S.colors && S.colors[name]);
+  }
+}
+$('colors-reset').addEventListener('click', () => set('colors_reset', true));
+
+// Interface scale: applied when the slider is let go (resizing the bar on every
+// step while dragging would move the slider under the mouse).
+document.querySelectorAll('#on-accent button').forEach((b) => b.addEventListener('click', () => set('on_accent', b.dataset.v)));
+
+// ---- Layout: bar position + row order ----
+const ROW_NAMES = { tabs: 'Tabs', nav: 'Address bar', saved: 'Saved tabs' };
+document.querySelectorAll('#bar-pos button').forEach((b) => b.addEventListener('click', () => set('bar_pos', b.dataset.v)));
+$('order-reset').addEventListener('click', () => set('row_order', 'tabs,nav,saved'));
+function renderLayout() {
+  document.querySelectorAll('#bar-pos button').forEach((b) => b.classList.toggle('primary', b.dataset.v === (S.bar_pos || 'top')));
+  const box = $('row-order');
+  box.textContent = '';
+  const order = S.row_order || ['tabs', 'nav', 'saved'];
+  order.forEach((k, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px';
+    const name = document.createElement('span');
+    name.textContent = (i + 1) + '.  ' + ROW_NAMES[k];
+    name.style.cssText = 'width:130px;color:var(--fg)';
+    const move = (d) => {
+      const o = order.slice();
+      const j = i + d;
+      if (j < 0 || j >= o.length) return;
+      [o[i], o[j]] = [o[j], o[i]];
+      set('row_order', o.join(','));
+    };
+    const up = document.createElement('button');
+    up.className = 'reset';
+    up.textContent = '↑';
+    up.disabled = i === 0;
+    up.onclick = () => move(-1);
+    const down = document.createElement('button');
+    down.className = 'reset';
+    down.textContent = '↓';
+    down.disabled = i === order.length - 1;
+    down.onclick = () => move(1);
+    row.append(name, up, down);
+    box.appendChild(row);
+  });
+}
+
+// Accent fill of a slider up to its knob (0..1 of the way).
+function paintRange(el) {
+  el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min));
+}
+for (const id of ['ui_scale', 'radius']) $(id).addEventListener('input', () => paintRange($(id)));
+$('ui_scale').addEventListener('input', () => { $('ui_scale-val').textContent = $('ui_scale').value + '%'; });
+$('ui_scale').addEventListener('change', () => set('ui_scale', Number($('ui_scale').value)));
+$('ui_scale-reset').addEventListener('click', () => set('ui_scale', 100));
+
+// Corner roundness: live preview while dragging, sent to the browser (throttled).
+function setRadius(v, send) {
+  document.documentElement.style.setProperty('--radius', v + 'px');
+  if (document.activeElement !== $('radius')) $('radius').value = v;
+  $('radius-val').textContent = v + ' px';
+  if (send) {
+    clearTimeout(setRadius.t);
+    setRadius.t = setTimeout(() => set('radius', Number(v)), 60);
+  }
+}
+$('radius').addEventListener('input', () => setRadius(Number($('radius').value), true));
+
+window.chrome.webview.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'settings') { S = e.data; render(); }
+});
+
+for (const k of ['dark', 'adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar']) {
+  $(k).addEventListener('change', () => set(k, $(k).checked));
+}
+for (const k of ['sleep', 'discard']) $(k).addEventListener('change', () => set(k, Number($(k).value) || 0));
+$('search').addEventListener('change', () => set('search', Number($('search').value)));
+$('home-kind').addEventListener('change', () => {
+  const v = $('home-kind').value;
+  if (v === 'custom') { $('home-custom').style.display = ''; $('home-custom').focus(); }
+  else set('home', v);
+});
+$('home-custom').addEventListener('change', () => { if ($('home-custom').value.trim()) set('home', $('home-custom').value); });
+document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => post({ cmd: 'action', name: b.dataset.action })));
+// Fresh values whenever the tab is shown again (theme may have changed from the menu).
+document.addEventListener('visibilitychange', () => { if (!document.hidden) post({ cmd: 'get' }); });
+post({ cmd: 'get' });
+</script>
+</body>
+</html>
