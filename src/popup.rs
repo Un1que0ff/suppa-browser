@@ -210,6 +210,21 @@ fn setup(c: ICoreWebView2Controller) {
             })),
             &mut token,
         );
+        // Also "ready" when WebView2 says the page finished loading: menus never
+        // depend on the page's own ready message alone.
+        let _ = wv.add_NavigationCompleted(
+            &NavigationCompletedEventHandler::create(Box::new(|_, args| {
+                let mut ok = windows::core::BOOL(0);
+                if let Some(a) = args {
+                    let _ = a.IsSuccess(&mut ok);
+                }
+                if ok.as_bool() {
+                    page_ready();
+                }
+                Ok(())
+            })),
+            &mut token,
+        );
         let _ = wv.Navigate(&HSTRING::from(MENU_URL));
     }
     // Hidden until the first menu: low memory from the start.
@@ -294,10 +309,24 @@ fn show_ex(key: &str, items: Vec<Item>, anchor: POINT, right: bool, on_pick: Pic
         p.ready
     })
     .unwrap_or(false);
-    if ready {
-        post(msg);
-    } else {
-        with(|p| p.queued = Some(msg));
+    if !ready {
+        // Kept until the page says it is loaded ...
+        with(|p| p.queued = Some(msg.clone()));
+    }
+    // ... and sent now as well: if the page is loaded but its "ready" got lost,
+    // the menu still opens (a page that is not loaded yet just ignores it).
+    post(msg);
+}
+
+/// The menu page is loaded: a menu that was asked for meanwhile is sent.
+fn page_ready() {
+    if let Some(Some(q)) = with(|p| {
+        p.ready = true;
+        let q = p.queued.take();
+        // Only if that menu is still wanted (not closed in the meantime).
+        if p.on_pick.is_some() { q } else { None }
+    }) {
+        post(q);
     }
 }
 
@@ -352,14 +381,7 @@ fn on_message(json: &str) {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else { return };
     let num = |k: &str| v.get(k).and_then(|x| x.as_f64()).unwrap_or(0.0);
     match v.get("cmd").and_then(|c| c.as_str()).unwrap_or("") {
-        "ready" => {
-            if let Some(Some(q)) = with(|p| {
-                p.ready = true;
-                p.queued.take()
-            }) {
-                post(q);
-            }
-        }
+        "ready" => page_ready(),
         "size" => place(num("w"), num("h")),
         "pick" => finish(Some(num("id") as i64), true),
         "close" => finish(None, true),
