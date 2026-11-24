@@ -1,6 +1,6 @@
 # Suppa Browser
 
-**A tiny, fast, private web browser for Windows - a single 3 MB `.exe` with a built-in ad blocker, Chrome extensions, tab groups and a fully customisable interface.**
+**A tiny, fast, private web browser for Windows (and now Linux) - a single 3 MB `.exe` with a built-in ad blocker, Chrome extensions, tab groups and a fully customisable interface.**
 
 Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is already part of Windows 10/11 - so pages render exactly like in Chrome/Edge, while Suppa itself stays very small.
 
@@ -169,6 +169,24 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 
 **Build it yourself:** double-click **`build.bat`**. It installs anything missing (Rust, the Microsoft C++ Build Tools, the WebView2 runtime), then builds `dist\Suppa.exe` (with the `scripts` folder next to it) and `dist\SuppaSetup.exe`.
 
+### Linux
+
+Suppa for Linux is the same browser on **GTK + WebKitGTK** (the engine of GNOME Web) instead of WebView2. It uses the same `scripts` folder, so the bar, menus, Settings, themes, layouts, saved tabs, tab groups, ad blocker, cookie-popup handling, incognito tabs, crash recovery and the Update button work the same way.
+
+**Requirements:** a 64-bit Linux desktop with WebKitGTK 4.1 (preinstalled on most GNOME desktops; otherwise `sudo apt install libwebkit2gtk-4.1-0`, `sudo dnf install webkit2gtk4.1` or `sudo pacman -S webkit2gtk-4.1`).
+
+**Download:** get `Suppa-<version>-linux-x64.tar.gz` from the [Releases](../../releases) page, unpack it and run:
+
+```sh
+sh install.sh
+```
+
+It installs for your user only (no root): the program in `~/.local/share/suppa-browser`, a `suppa` command in `~/.local/bin` and a menu entry with the icon. `sh install.sh --uninstall` removes it; your settings and tabs stay in `~/.local/share/SuppaBrowser`.
+
+**Build it yourself:** `sh linux/build.sh` installs what is missing (Rust, the WebKitGTK development files), then builds `dist/linux/` with `suppa`, `scripts/` and `install.sh`.
+
+Not in the Linux version (yet): Chrome extensions (WebKitGTK has no extension support), saved passwords and form filling, backup and bookmark import, the setup program, and freezing background tabs (they are unloaded after the set time instead). On Wayland desktops Suppa runs through XWayland so its menus can be placed exactly.
+
 ---
 
 ## Customise without recompiling
@@ -211,12 +229,13 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 | `src/default_browser.rs`, `src/shortcuts.rs`, `src/menu.rs`, `src/util.rs` | Default browser, shortcuts, ≡ menu, helpers |
 | `build.rs` | Embeds the manifest and draws the icon from `assets/icon.svg` |
 | `installer/` | `SuppaSetup.exe`: install, update and uninstall, in a window drawn in Suppa's style |
+| `linux/` | Suppa for Linux (GTK + WebKitGTK): same scripts, same settings code (`src/settings.rs`), its own window, tabs, menus and ad-block host code; `linux/build.sh`, `linux/install.sh` |
 
 ---
 
 ## Known limits
 
-- Windows only (WebView2).
+- The Linux version has fewer features than the Windows one (see [Linux](#linux)).
 - Most Chrome extensions work; a few that need Chrome-only APIs may not load.
 - Passwords can't be imported from Chrome/Edge (they lock them for themselves) - use Suppa's backup instead.
 

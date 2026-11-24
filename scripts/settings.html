@@ -187,11 +187,11 @@
       <div class="label">Accept cookie popups automatically<small>Clicks "Accept all" on cookie banners (edit scripts\cookies.js to change how)</small></div>
       <label class="sw"><input type="checkbox" id="cookies"><span></span></label>
     </div>
-    <div class="row">
+    <div class="row" data-win>
       <div class="label">Save passwords<small>Offers to save passwords and fills them in next time</small></div>
       <label class="sw"><input type="checkbox" id="passwords"><span></span></label>
     </div>
-    <div class="row">
+    <div class="row" data-win>
       <div class="label">Fill in forms (names, addresses)</div>
       <label class="sw"><input type="checkbox" id="autofill"><span></span></label>
     </div>
@@ -202,7 +202,7 @@
       <div class="label">Incognito tab<small>Nothing is saved: no history, cookies or passwords (Ctrl+Shift+N)</small></div>
       <button data-action="incognito">Open incognito tab</button>
     </div>
-    <div class="row">
+    <div class="row" data-win>
       <div class="label">Saved passwords</div>
       <button class="danger" data-action="clear_passwords">Delete saved passwords</button>
     </div>
@@ -218,7 +218,7 @@
       <div class="label">Reopen tabs from last time</div>
       <label class="sw"><input type="checkbox" id="restore"><span></span></label>
     </div>
-    <div class="row">
+    <div class="row" data-win>
       <div class="label">Freeze background tabs after (minutes)<small>Frozen tabs use no CPU</small></div>
       <input type="number" id="sleep" min="1" max="600">
     </div>
@@ -228,7 +228,7 @@
     </div>
   </section>
 
-  <section>
+  <section data-win>
     <h2>Extensions</h2>
     <div class="row">
       <div class="label"><span id="ext-list" class="muted">No extensions</span></div>
@@ -237,7 +237,7 @@
     </div>
   </section>
 
-  <section>
+  <section data-win>
     <h2>Backup and import</h2>
     <div class="row">
       <div class="label">Backup<small>Settings, saved tabs, open tabs, bar sizes, scripts, extensions, saved passwords and form data in one .zip. Passwords can be restored on this Windows account.</small></div>
@@ -308,9 +308,10 @@ function renderSwatches() {
   cyc.onclick = () => set('accent', 'cycle');
   box.appendChild(cyc);
   const win = document.createElement('button');
-  win.className = 'swatch win' + (S.accent === 'windows' ? ' sel' : '');
+  const linux = S.platform === 'linux';
+  win.className = 'swatch' + (linux ? '' : ' win') + (S.accent === 'windows' ? ' sel' : '');
   win.style.background = S.windows_accent || '#0078d4';
-  win.title = 'Windows accent colour (follows your Windows settings)';
+  win.title = linux ? 'System accent colour (follows your desktop settings)' : 'Windows accent colour (follows your Windows settings)';
   win.onclick = () => set('accent', 'windows');
   box.appendChild(win);
   for (const c of COLORS) {
@@ -331,6 +332,8 @@ function renderSwatches() {
 
 function render() {
   document.body.classList.toggle('light', !S.dark);
+  // Parts that only exist in Suppa for Windows (WebView2 features).
+  document.querySelectorAll('[data-win]').forEach((e) => { e.style.display = S.platform === 'linux' ? 'none' : ''; });
   applyColors(S.colors);
   const acc = S.accent === 'cycle' ? '#b07cff' : S.accent === 'windows' ? S.windows_accent : S.accent;
   document.body.style.setProperty('--accent', acc);
@@ -374,9 +377,9 @@ function render() {
   $('data-path').textContent = S.data;
   $('default-note').textContent = S.is_default
     ? 'Suppa is your default browser - links from other apps open here'
-    : 'Links from other apps open in another browser. Windows will ask you to choose Suppa.';
+    : 'Links from other apps open in another browser.' + (S.platform === 'linux' ? '' : ' Windows will ask you to choose Suppa.');
   $('default-btn').style.display = S.is_default ? 'none' : '';
-  $('about').textContent = 'Suppa Browser ' + S.version + (S.engine ? ' · WebView2 ' + S.engine : '');
+  $('about').textContent = 'Suppa Browser ' + S.version + (S.engine ? ' · ' + (S.platform === 'linux' ? '' : 'WebView2 ') + S.engine : '');
 }
 
 // ---- Pro settings -> Colors ----

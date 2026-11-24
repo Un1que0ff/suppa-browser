@@ -122,8 +122,9 @@ body.side .gchip { height: 28px; margin: 4px 0; max-width: none; }
 #winctl { display: flex; align-self: flex-start; height: min(32px, var(--row1)); flex: 0 0 auto; }
 #winctl button {
   width: 46px; height: 100%; border: none; border-radius: 0; background: transparent; color: var(--fg);
-  font: 10px "Segoe MDL2 Assets", "Segoe Fluent Icons"; padding: 0;
+  padding: 0; display: inline-flex; align-items: center; justify-content: center;
 }
+#winctl button svg { display: block; pointer-events: none; }
 #winctl button:hover { background: var(--btn-hover); }
 #winctl #close:hover { background: #e81123; color: #fff; }
 /* Tabs not on the top row: the window buttons sit at the right end of the top

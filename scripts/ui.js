@@ -430,10 +430,23 @@ function renderState() {
   $('fwd').disabled = !state.fwd;
   document.body.classList.toggle('max', !!state.max);
   document.body.classList.toggle('inc', !!state.inc);
-  const maxIcon = state.max ? '' : '';
-  if ($('max').textContent !== maxIcon) $('max').textContent = maxIcon;
+  const maxIcon = state.max ? 'restore' : 'max';
+  if ($('max').dataset.icon !== maxIcon) { $('max').dataset.icon = maxIcon; $('max').innerHTML = WIN_ICONS[maxIcon]; }
   $('max').title = state.max ? 'Restore' : 'Maximize';
 }
+
+// Window button icons (drawn, so they look the same on every system).
+const WIN_SVG = (d) => '<svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1" shape-rendering="crispEdges">' + d + '</svg>';
+const WIN_ICONS = {
+  min: WIN_SVG('<path d="M0 5.5h10"/>'),
+  max: WIN_SVG('<rect x=".5" y=".5" width="9" height="9"/>'),
+  restore: WIN_SVG('<path d="M2.5 2.5V.5h7v7h-2"/><rect x=".5" y="2.5" width="7" height="7"/>'),
+  close: WIN_SVG('<path d="M.5.5l9 9M9.5.5l-9 9" shape-rendering="geometricPrecision"/>'),
+};
+$('min').innerHTML = WIN_ICONS.min;
+$('close').innerHTML = WIN_ICONS.close;
+$('max').innerHTML = WIN_ICONS.max;
+$('max').dataset.icon = 'max';
 
 // ---------- saved tabs (row 3) ----------
 const FOLDER_ICON = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.5A1.5 1.5 0 0 1 3 2h3.2l1.5 1.6H13A1.5 1.5 0 0 1 14.5 5v7A1.5 1.5 0 0 1 13 13.5H3A1.5 1.5 0 0 1 1.5 12z"/></svg>';

@@ -648,7 +648,7 @@ fn about() {
     util::info(
         hwnd,
         &format!(
-            "Suppa Browser {}\n\nEngine: Microsoft Edge WebView2 {}\nAd blocker: {}\nOpen tabs: {}\nData folder: {}",
+            "About Suppa Browser\n\nVersion: {}\nPlatform: Windows (64-bit)\nEngine: Microsoft Edge WebView2 {}\nAd blocker: {}\nOpen tabs: {}\nData folder: {}\n\nhttps://github.com/Un1que0ff/suppa-browser",
             env!("CARGO_PKG_VERSION"),
             if ver.is_empty() { "(starting)" } else { &ver },
             if adblock::is_ready() { "active" } else { "loading" },
