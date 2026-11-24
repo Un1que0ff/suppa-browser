@@ -1,4 +1,4 @@
-// Suppa Browser — tiny, fast Windows browser on top of WebView2 (Chromium).
+// Suppa Browser - tiny, fast Windows browser on top of WebView2 (Chromium).
 //
 // File map (edit only the file you need):
 //   main.rs        entry point

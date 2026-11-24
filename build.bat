@@ -78,9 +78,21 @@ if errorlevel 1 (
 rem Scripts go next to the exe. /D = only copy files that are newer, so your
 rem edits made directly in dist\scripts are kept.
 xcopy /E /I /Y /D /Q "scripts" "dist\scripts" >nul
+
+rem Setup for other people: one SuppaSetup.exe with Suppa.exe + scripts inside.
+echo.
+echo Building SuppaSetup.exe...
+pushd installer
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$f = @('-Ctarget-feature=+crt-static', ('--remap-path-prefix=' + $env:USERPROFILE + '=~'), ('--remap-path-prefix=' + (Split-Path (Get-Location).Path) + '=.')); $env:CARGO_ENCODED_RUSTFLAGS = $f -join [char]0x1f; cargo build --release; exit $LASTEXITCODE"
+set "SETUP_ERR=%errorlevel%"
+popd
+if not "%SETUP_ERR%"=="0" goto :fail_build
+copy /y "installer\target\release\SuppaSetup.exe" "dist\SuppaSetup.exe" >nul
+
 echo.
 echo ============================================
 for %%F in ("dist\Suppa.exe") do echo   Done: %%~fF  (%%~zF bytes)
+for %%F in ("dist\SuppaSetup.exe") do echo   Setup: %%~fF  (%%~zF bytes)
 echo   Scripts: %~dp0dist\scripts  (edit them there, then press Update)
 echo ============================================
 echo.

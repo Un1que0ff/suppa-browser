@@ -1,8 +1,8 @@
 # Suppa Browser
 
-**A tiny, fast, private web browser for Windows — a single 3 MB `.exe` with a built-in ad blocker, Chrome extensions, tab groups and a fully customisable interface.**
+**A tiny, fast, private web browser for Windows - a single 3 MB `.exe` with a built-in ad blocker, Chrome extensions, tab groups and a fully customisable interface.**
 
-Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is already part of Windows 10/11 — so pages render exactly like in Chrome/Edge, while Suppa itself stays very small.
+Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is already part of Windows 10/11 - so pages render exactly like in Chrome/Edge, while Suppa itself stays very small.
 
 ![Suppa Browser - dark theme](docs/screenshots/main-dark.png)
 
@@ -10,19 +10,19 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 
 ## Highlights
 
-- **Tiny** — one `Suppa.exe` of about **3 MB**. No installer, no DLLs, no background services.
-- **Fast** — the window and its toolbar are ready in about **0.2 s**; the ad blocker is ready in **25 ms**.
-- **Light on CPU and RAM** — background tabs fall asleep and unload automatically; about **0.1 % of one CPU core** when idle.
-- **Private** — no account, no telemetry, no analytics. Suppa itself never sends anything about you anywhere (details below).
-- **Ad and tracker blocker built in** — Brave's ad-block engine with EasyList, EasyPrivacy, uBlock filters and cookie-banner lists, plus your own rules.
-- **Cookie popups handled for you** — "Accept all" is clicked automatically (can be turned off).
-- **Chrome extensions** — install from the Chrome Web Store with **Add to Suppa**, with buttons and popups next to the address bar.
-- **Tab groups** — drag a tab onto another and hold: they form a coloured, collapsible group.
+- **Tiny** - one `Suppa.exe` of about **3 MB**. No DLLs, no background services. Use the small optional setup or just run the exe.
+- **Fast** - the window and its toolbar are ready in about **0.2 s**; the ad blocker is ready in **25 ms**.
+- **Light on CPU and RAM** - background tabs fall asleep and unload automatically; about **0.1 % of one CPU core** when idle.
+- **Private** - no account, no telemetry, no analytics. Suppa itself never sends anything about you anywhere (details below).
+- **Ad and tracker blocker built in** - Brave's ad-block engine with EasyList, EasyPrivacy, uBlock filters and cookie-banner lists, plus your own rules.
+- **Cookie popups handled for you** - "Accept all" is clicked automatically (can be turned off).
+- **Chrome extensions** - install from the Chrome Web Store with **Add to Suppa**, with buttons and popups next to the address bar.
+- **Tab groups** - drag a tab onto another and hold: they form a coloured, collapsible group.
 - **Saved tabs bar** with folders and drag & drop, a ☆ to save a site in one click.
-- **Your layout** — tabs, address bar and saved tabs at the top, the bottom, or as a column on the left/right, in any order.
-- **Your look** — dark/light, any accent colour (or the Windows accent), every interface colour, corner roundness, interface scale.
+- **Your layout** - tabs, address bar and saved tabs at the top, the bottom, or as a column on the left/right, in any order.
+- **Your look** - dark/light, any accent colour (or the Windows accent), every interface colour, corner roundness, interface scale.
 - **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark import.
-- **Hackable** — the whole interface is plain HTML/CSS/JS in a folder next to the exe; edit it and press **Update**.
+- **Hackable** - the whole interface is plain HTML/CSS/JS in a folder next to the exe; edit it and press **Update**.
 
 ---
 
@@ -31,11 +31,11 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 | | |
 |---|---|
 | ![Dark theme](docs/screenshots/main-dark.png) | ![Light theme](docs/screenshots/main-light.png) |
-| **Dark theme** — tab group "Reading", saved tabs bar, extension-ready toolbar | **Light theme** |
+| **Dark theme** - tab group "Reading", saved tabs bar, extension-ready toolbar | **Light theme** |
 | ![Menu](docs/screenshots/menu.png) | ![Side bar](docs/screenshots/side-tabs.png) |
-| **The ≡ menu** — every menu follows the browser's theme | **Bar on the left** — vertical tabs, address and saved tabs in one column |
+| **The ≡ menu** - every menu follows the browser's theme | **Bar on the left** - vertical tabs, address and saved tabs in one column |
 | ![Saved tabs folder](docs/screenshots/saved-folder.png) | ![Settings](docs/screenshots/settings.png) |
-| **Saved tabs** — folders open as menus; drag to sort | **Settings** — look, layout, privacy, backup, update |
+| **Saved tabs** - folders open as menus; drag to sort | **Settings** - look, layout, privacy, backup, update |
 
 ![Pro settings - colours](docs/screenshots/settings-colors.png)
 *Pro settings: change every colour of the interface (separately for the light and dark theme).*
@@ -57,11 +57,11 @@ Measured on Windows 10 (WebView2 157), Suppa 0.4, one web page open, 60 s after 
 
 How it stays light:
 
-- **Sleeping tabs** — tabs you haven't looked at for 5 minutes are frozen (0 % CPU); after 30 minutes they are unloaded and free their memory. Clicking the tab loads it again. Tabs playing audio are never put to sleep. (Times can be changed in Settings.)
-- **Lazy restore** — tabs from your last session only load when you click them.
-- **Shared processes** — tabs of the same site share one renderer process; the toolbar and the menus share another.
-- **Nothing runs in the background** — file changes are noticed through Windows change notifications instead of polling; a minimized window renders nothing.
-- **Fast drawing** — pages are drawn by 4 raster threads and on the graphics card; big downloads use several connections.
+- **Sleeping tabs** - tabs you haven't looked at for 5 minutes are frozen (0 % CPU); after 30 minutes they are unloaded and free their memory. Clicking the tab loads it again. Tabs playing audio are never put to sleep. (Times can be changed in Settings.)
+- **Lazy restore** - tabs from your last session only load when you click them.
+- **Shared processes** - tabs of the same site share one renderer process; the toolbar and the menus share another.
+- **Nothing runs in the background** - file changes are noticed through Windows change notifications instead of polling; a minimized window renders nothing.
+- **Fast drawing** - pages are drawn by 4 raster threads and on the graphics card; big downloads use several connections.
 
 Most of the memory is the Chromium engine itself (page renderer, GPU process, network). Suppa adds about 13 MB on top.
 
@@ -81,7 +81,7 @@ The only connections Suppa itself makes:
 
 Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` requests are switched off, Edge shopping/translate/SmartScreen extras are disabled, incognito tabs keep nothing after closing.
 
-*Web pages are displayed by Microsoft's WebView2 runtime (part of Windows). Like any Windows component, it follows Windows' own diagnostic-data settings (Settings → Privacy → Diagnostics & feedback) — that is between Windows and Microsoft, not Suppa.*
+*Web pages are displayed by Microsoft's WebView2 runtime (part of Windows). Like any Windows component, it follows Windows' own diagnostic-data settings (Settings → Privacy → Diagnostics & feedback) - that is between Windows and Microsoft, not Suppa.*
 
 ---
 
@@ -89,10 +89,10 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 
 ### Tabs
 - **New / close / reopen**: `Ctrl+T` (or `Ctrl+N`), `Ctrl+W` or middle-click, `Ctrl+Shift+T` reopens the last closed tab where it was.
-- **Sort**: drag a tab left/right — the others slide aside. Smooth open/close animations; tabs only shrink when the row is full.
+- **Sort**: drag a tab left/right - the others slide aside. Smooth open/close animations; tabs only shrink when the row is full.
 - **Tab groups**: drag a tab and **hold it over the middle of another tab** → they become a group (or the tab joins that tab's group). Each group has a coloured label: click it to collapse/expand, right-click to rename, change colour, ungroup or close the group. Grouped tabs are tinted with the group's colour. Right-click a tab → *Add to new group / Remove from group / Ungroup*. Groups are saved with the session.
-- **New window**: drag a tab out of the window and let go — it opens in a new window (same logins and extensions).
-- **Incognito**: `Ctrl+Shift+N` — a separate private profile; nothing is saved.
+- **New window**: drag a tab out of the window and let go - it opens in a new window (same logins and extensions).
+- **Incognito**: `Ctrl+Shift+N` - a separate private profile; nothing is saved.
 - **Crash recovery**: open tabs and groups are saved 2 seconds after every change and always come back after a crash.
 
 ### Saved tabs (bookmarks)
@@ -117,7 +117,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - **Pro settings → Colors**: every colour of the interface, per theme.
 - **Layout**: bar at the **top, bottom, left or right** (left/right = a column with vertical tabs; drag its edge to resize), and any **order** of tabs / address bar / saved tabs.
 - Drag the thin line under a row to resize it; ≡ → *Lock bar sizes* prevents accidents.
-- The window has no Windows title bar — the tab row *is* the title bar (drag to move, double-click to maximize).
+- The window has no Windows title bar - the tab row *is* the title bar (drag to move, double-click to maximize).
 
 ### Passwords, backup and import
 - Passwords and form data are saved and filled in (can be turned off). *Delete saved passwords* in Settings.
@@ -157,9 +157,17 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 
 **Requirements:** Windows 10 or 11 (64-bit) with the Microsoft Edge WebView2 Runtime (already included in up-to-date Windows 10/11).
 
-**Download:** get `Suppa.exe` and the `scripts` folder from the [Releases](../../releases) page, put them in one folder and run `Suppa.exe`.
+**Setup (recommended):** download **`SuppaSetup.exe`** from the [Releases](../../releases) page and run it.
+- Installs for your Windows account only, no administrator rights needed, in `%LOCALAPPDATA%\Programs\Suppa`.
+- Adds Start-menu and desktop shortcuts and an entry in **Windows Settings → Apps**, where you can uninstall it.
+- If the WebView2 Runtime is missing, it offers to download and install it from Microsoft.
+- Run a newer `SuppaSetup.exe` to update: your tabs, settings, own filter rules and user scripts are kept.
+- The setup window follows your Suppa theme, accent colour and corner roundness.
+- Silent use: `SuppaSetup.exe /S` installs, `SuppaSetup.exe --uninstall /S` removes (your data is kept).
 
-**Build it yourself:** double-click **`build.bat`**. It installs anything missing (Rust, the Microsoft C++ Build Tools, the WebView2 runtime), then builds `dist\Suppa.exe` and copies the `scripts` folder next to it.
+**Portable:** get the `.zip` from the [Releases](../../releases) page, unpack it anywhere and run `Suppa.exe`.
+
+**Build it yourself:** double-click **`build.bat`**. It installs anything missing (Rust, the Microsoft C++ Build Tools, the WebView2 runtime), then builds `dist\Suppa.exe` (with the `scripts` folder next to it) and `dist\SuppaSetup.exe`.
 
 ---
 
@@ -178,7 +186,7 @@ Everything in `scripts\` next to `Suppa.exe` can be edited:
 | `userscripts\*.js` | your own scripts for web pages |
 | `filters\*.txt` | your own ad-block rules |
 
-When a file changes, the **≡** button becomes **Update ≡** — click Update and Suppa restarts with your changes (tabs come back). If you change the Rust code in the project folder, Update rebuilds `Suppa.exe` first.
+When a file changes, the **≡** button becomes **Update ≡** - click Update and Suppa restarts with your changes (tabs come back). If you change the Rust code in the project folder, Update rebuilds `Suppa.exe` first.
 
 ---
 
@@ -202,6 +210,7 @@ When a file changes, the **≡** button becomes **Update ≡** — click Update 
 | `src/scripts.rs` | The scripts folder, change detection, rebuild |
 | `src/default_browser.rs`, `src/shortcuts.rs`, `src/menu.rs`, `src/util.rs` | Default browser, shortcuts, ≡ menu, helpers |
 | `build.rs` | Embeds the manifest and draws the icon from `assets/icon.svg` |
+| `installer/` | `SuppaSetup.exe`: install, update and uninstall, in a window drawn in Suppa's style |
 
 ---
 
@@ -209,7 +218,7 @@ When a file changes, the **≡** button becomes **Update ≡** — click Update 
 
 - Windows only (WebView2).
 - Most Chrome extensions work; a few that need Chrome-only APIs may not load.
-- Passwords can't be imported from Chrome/Edge (they lock them for themselves) — use Suppa's backup instead.
+- Passwords can't be imported from Chrome/Edge (they lock them for themselves) - use Suppa's backup instead.
 
 ## License
 

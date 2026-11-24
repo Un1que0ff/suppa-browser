@@ -34,7 +34,11 @@ fn main() {
         let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
         let res = out.join("icon.res");
         match make_res(&text, &res) {
-            Ok(()) => println!("cargo:rustc-link-arg-bins={}", res.display()),
+            Ok(()) => {
+                println!("cargo:rustc-link-arg-bins={}", res.display());
+                // The installer (installer\) uses the same icon.
+                let _ = std::fs::copy(&res, root.join("target").join("suppa-icon.res"));
+            }
             Err(e) => println!("cargo:warning=icon not embedded: {e}"),
         }
     }
