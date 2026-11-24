@@ -146,7 +146,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 | `F5`, `Ctrl+R` / `Ctrl+F5`, `Ctrl+Shift+R` | Reload / reload without cache |
 | `Alt+Left` / `Alt+Right` / `Alt+Home` | Back / forward / home |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Zoom in / out / reset |
-| `Alt+S`, `Ctrl+,` | Settings |
+| `Alt+S` | Settings |
 | `F11` | Full screen |
 | `Ctrl+J` / `Shift+Esc` | Downloads / task manager |
 | `Ctrl+P`, `Ctrl+F`, `F12` | Print, find, developer tools |
