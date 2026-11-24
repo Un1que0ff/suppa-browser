@@ -299,6 +299,7 @@ fn build_and_swap() -> Result<(), String> {
     }
     let status = std::process::Command::new(cargo_exe())
         .args(["build", "--release"])
+        .env("CARGO_ENCODED_RUSTFLAGS", private_rustflags(src))
         .current_dir(src)
         .stdout(log)
         .stderr(log2)
@@ -363,6 +364,20 @@ pub fn start_watcher(hwnd: windows::Win32::Foundation::HWND) {
             }
         }
     });
+}
+
+/// Compiler flags for rebuilding Suppa.exe (same as build.bat):
+///  * static C runtime (runs without the Visual C++ Redistributable)
+///  * your user folder and the project folder are written as "~" and "."
+///    in the exe instead of their real paths (they would show your Windows
+///    user name). This replaces .cargo\config.toml's flags while building.
+fn private_rustflags(src: &Path) -> String {
+    let mut flags = vec!["-Ctarget-feature=+crt-static".to_string()];
+    if let Some(home) = std::env::var_os("USERPROFILE") {
+        flags.push(format!("--remap-path-prefix={}=~", PathBuf::from(home).display()));
+    }
+    flags.push(format!("--remap-path-prefix={}=.", src.display()));
+    flags.join("\u{1f}")
 }
 
 /// Removes Suppa.old.exe left behind by a rebuild.

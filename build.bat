@@ -63,7 +63,10 @@ rem 4. Build
 rem ---------------------------------------------------------------
 echo [4/4] Building Suppa.exe (release)...
 echo.
-cargo build --release
+rem Your user folder and this folder are written as "~" and "." inside the exe
+rem instead of their real paths (they would show your Windows user name).
+rem The flags are joined with the 0x1F separator so paths with spaces work.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$f = @('-Ctarget-feature=+crt-static', ('--remap-path-prefix=' + $env:USERPROFILE + '=~'), ('--remap-path-prefix=' + (Get-Location).Path + '=.')); $env:CARGO_ENCODED_RUSTFLAGS = $f -join [char]0x1f; cargo build --release; exit $LASTEXITCODE"
 if errorlevel 1 goto :fail_build
 
 if not exist "dist" mkdir "dist"
