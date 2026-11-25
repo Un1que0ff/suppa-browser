@@ -36,6 +36,10 @@ pub fn on_message(wv: &ICoreWebView2, json: &str) {
                 "import_passwords" => CMD_IMPORT_PASSWORDS,
                 "export_passwords" => CMD_EXPORT_PASSWORDS,
                 "restart" => CMD_RESTART,
+                "check_update" => CMD_CHECK_UPDATE,
+                "whats_new" => CMD_WHATS_NEW,
+                "history" => CMD_HISTORY,
+                "downloads" => CMD_DOWNLOADS,
                 "load_unpacked" => CMD_EXT_LOAD_UNPACKED,
                 _ => return,
             };
@@ -48,13 +52,28 @@ pub fn on_message(wv: &ICoreWebView2, json: &str) {
             let (realm, user) = (s("realm"), s("user"));
             let reply = match s("op").as_str() {
                 "list" => crate::passwords::list_json(),
-                "reveal" => serde_json::json!({
-                    "type": "pw_reveal", "realm": realm, "user": user,
-                    "password": crate::passwords::reveal(&realm, &user),
-                }),
-                "copy" => {
-                    let ok = crate::passwords::copy(&realm, &user);
-                    serde_json::json!({ "type": "pw_toast", "text": if ok { "Password copied" } else { "Could not copy the password" } })
+                // Showing or copying needs Windows Hello / the account password first.
+                op @ ("reveal" | "copy") => {
+                    let wv = wv.clone();
+                    let reason = if op == "reveal" { "Suppa wants to show a saved password" } else { "Suppa wants to copy a saved password" };
+                    let op = op.to_string();
+                    crate::auth::require(reason, move |ok| {
+                        let reply = if !ok {
+                            serde_json::json!({ "type": "pw_toast", "text": "Not confirmed - the password stays hidden" })
+                        } else if op == "reveal" {
+                            serde_json::json!({
+                                "type": "pw_reveal", "realm": realm, "user": user,
+                                "password": crate::passwords::reveal(&realm, &user),
+                            })
+                        } else {
+                            let ok = crate::passwords::copy(&realm, &user);
+                            serde_json::json!({ "type": "pw_toast", "text": if ok { "Password copied" } else { "Could not copy the password" } })
+                        };
+                        unsafe {
+                            let _ = wv.PostWebMessageAsJson(&HSTRING::from(reply.to_string()));
+                        }
+                    });
+                    return;
                 }
                 "delete" => {
                     crate::passwords::delete(&realm, &user);
@@ -89,7 +108,7 @@ pub fn broadcast() {
     }
 }
 
-fn send_state(wv: &ICoreWebView2) {
+pub fn send_state(wv: &ICoreWebView2) {
     let json = app::with(|s| {
         let st = &s.settings;
         serde_json::json!({
@@ -118,6 +137,7 @@ fn send_state(wv: &ICoreWebView2) {
             "windows_accent": ui::windows_accent(),
             "adblock": st.adblock,
             "cookies": st.auto_cookies,
+            "auto_update": st.auto_update,
             "passwords": st.save_passwords,
             "autofill": st.autofill,
             "saved_bar": st.show_saved,
@@ -253,6 +273,7 @@ fn set(key: &str, v: &serde_json::Value) {
                 autofill_changed = true;
             }
             "restore" => st.restore_session = b,
+            "auto_update" => st.auto_update = b,
             "saved_bar" => {
                 st.show_saved = b;
                 theme_changed = true;

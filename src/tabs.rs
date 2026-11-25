@@ -173,6 +173,18 @@ pub fn open_settings() {
     }
 }
 
+/// Opens one of Suppa's own pages (History, Downloads), or switches to it.
+pub fn open_internal(url: &str) {
+    let host = util::host_of(url);
+    let existing = app::with(|s| s.tabs.iter().position(|t| util::host_of(&t.url) == host)).flatten();
+    match existing {
+        Some(i) => activate(i),
+        None => {
+            let _ = open(Some(url.to_string()), true, false);
+        }
+    }
+}
+
 /// Adds a tab without loading it (session restore). It loads when activated.
 pub fn add_lazy(url: String) {
     let _ = insert(url, Some(usize::MAX), false);
@@ -433,14 +445,6 @@ pub fn print() {
 pub fn devtools() {
     with_active_webview(|w| unsafe {
         let _ = w.OpenDevToolsWindow();
-    });
-}
-
-pub fn downloads() {
-    with_active_webview(|w| unsafe {
-        if let Ok(w9) = w.cast::<ICoreWebView2_9>() {
-            let _ = w9.OpenDefaultDownloadDialog();
-        }
     });
 }
 

@@ -92,6 +92,8 @@ pub fn run() {
             crate::backup::apply_pending();
             // Passwords imported from a file go into the engine's store now too.
             crate::passwords::apply_pending();
+            // Updated since the last run? (for "What's new")
+            crate::updater::note_version();
         }
         scripts::ensure_defaults();
         START_SIGNATURE.with(|s| s.set(scripts::signature()));
@@ -371,6 +373,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 }
                 DefWindowProcW(hwnd, msg, wp, lp)
             }
+            WM_APP_LATER => {
+                app::run_later();
+                LRESULT(0)
+            }
             WM_APP_FILES_CHANGED => {
                 SetTimer(Some(hwnd), TIMER_WATCH, 400, None);
                 LRESULT(0)
@@ -483,6 +489,17 @@ pub fn command(id: u16) {
         CMD_IMPORT_PASSWORDS => crate::passwords::import_file(),
         CMD_EXPORT_PASSWORDS => crate::passwords::export_file(),
         CMD_RESTART => restart_now(),
+        CMD_AUTH_OK => crate::auth::done(true),
+        CMD_AUTH_FAIL => crate::auth::done(false),
+        CMD_HISTORY => tabs::open_internal(crate::pages::HISTORY_URL),
+        CMD_DL_POPUP => crate::downloads::show_popup(),
+        CMD_DL_CHANGED => crate::downloads::notify(),
+        CMD_DL_POLL => crate::downloads::poll(),
+        CMD_CHECK_UPDATE => crate::updater::check(true),
+        CMD_INSTALL_UPDATE => crate::updater::install(),
+        CMD_WHATS_NEW => crate::updater::whats_new(),
+        CMD_UPDATE_FOUND => crate::updater::on_checked(),
+        CMD_NOTES_READY => crate::updater::on_notes(),
         CMD_IMPORT_MENU => {
             let items = crate::import::menu_items();
             crate::popup::show("import", items, ui::corner_anchor(), true, |pick| {
@@ -521,7 +538,7 @@ pub fn command(id: u16) {
         CMD_MENU => menu::show_main(),
         CMD_ADBLOCK_MENU => menu::show_adblock(),
         CMD_EXT_MENU => extensions::show_menu(),
-        CMD_DOWNLOADS => tabs::downloads(),
+        CMD_DOWNLOADS => crate::downloads::open_page(),
         CMD_TASK_MANAGER => tabs::task_manager(),
         CMD_SLEEP_NOW => sleeper::tick(true),
         CMD_ZOOM_IN => tabs::zoom(0.1),
@@ -616,6 +633,7 @@ fn clear_data_now() {
     let hwnd = app::hwnd();
     tabs::with_active_webview(|wv| unsafe {
         if let Ok(p) = wv.cast::<ICoreWebView2_13>().and_then(|w| w.Profile()).and_then(|p| p.cast::<ICoreWebView2Profile2>()) {
+            crate::history::clear(0);
             let _ = p.ClearBrowsingDataAll(&ClearBrowsingDataCompletedHandler::create(Box::new(move |_| {
                 util::info(hwnd, "Browsing data cleared.");
                 Ok(())
@@ -738,6 +756,7 @@ fn shutdown() {
         }
         return;
     }
+    crate::history::save();
     let (urls, active, meta) = tabs::session_urls();
     let ctrls = app::with(|s| {
         // Remember the window (the size before full screen, if in full screen).

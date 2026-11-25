@@ -1,12 +1,13 @@
 <!doctype html>
-<!-- Suppa Browser - new tab page. {{SEARCH}} is replaced with the chosen search engine. -->
+<!-- Suppa Browser - new tab page. {{SEARCH}} is replaced with the chosen search engine,
+     {{SHORTCUTS}} with the most-used sites from the history ([{url, title, host, name}]). -->
 <html><head><meta charset="utf-8"><title>New Tab</title>
 <meta name="color-scheme" content="light dark">
 <style>
 html,body{height:100%;margin:0;font-family:"Segoe UI",system-ui,sans-serif}
 body{display:flex;align-items:center;justify-content:center;background:#161616;color:#ececec}
 @media (prefers-color-scheme: light){body{background:#f2f2f2;color:#1c1c1c}}
-main{width:min(640px,90vw);text-align:center;margin-top:-12vh}
+main{width:min(680px,92vw);text-align:center;margin-top:-10vh}
 h1{font-weight:600;font-size:40px;margin:0 0 24px;letter-spacing:-1px}
 h1 span{color:#b07cff}
 input{width:100%;box-sizing:border-box;font-size:17px;padding:13px 20px;border-radius:12px;
@@ -14,9 +15,57 @@ input{width:100%;box-sizing:border-box;font-size:17px;padding:13px 20px;border-r
 @media (prefers-color-scheme: light){input{background:#fff;border-color:#d0d0d0}}
 input:focus{border-color:#b07cff}
 p{opacity:.55;font-size:13px;margin-top:18px}
+/* Most-used sites */
+#tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:26px}
+#tiles:empty{display:none}
+.tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px 10px;
+ border-radius:12px;color:inherit;text-decoration:none}
+.tile:hover{background:rgba(127,127,127,.14)}
+.tile .l{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:19px;font-weight:600;color:#fff}
+.tile .n{font-size:12.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile .x{position:absolute;top:4px;right:6px;width:20px;height:20px;border:0;border-radius:50%;background:transparent;
+ color:inherit;opacity:0;cursor:pointer;font-size:14px;line-height:20px;padding:0}
+.tile:hover .x{opacity:.6}
+.tile .x:hover{opacity:1;background:rgba(127,127,127,.25)}
 </style></head>
 <body><main>
 <h1>Suppa<span>.</span></h1>
 <form action="{{SEARCH}}" method="get"><input name="q" placeholder="Search the web" autocomplete="off" autofocus></form>
+<div id="tiles"></div>
 <p>Ads and trackers are blocked. Background tabs sleep to save memory.</p>
-</main></body></html>
+</main>
+<script type="application/json" id="sites">{{SHORTCUTS}}</script>
+<script>
+'use strict';
+// Linux (or an older Suppa) leaves the placeholder in: no shortcuts then.
+let SITES = [];
+try { SITES = JSON.parse(document.getElementById('sites').textContent); } catch (e) {}
+const COLORS = ['#7c5cff', '#2e9d5b', '#1f8fb0', '#c0782a', '#c04d6b', '#4a6fd1', '#8a5a2b', '#5c8a2e'];
+function color(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; }
+const box = document.getElementById('tiles');
+for (const s of SITES) {
+  const a = document.createElement('a');
+  a.className = 'tile';
+  a.href = s.url;
+  a.title = s.title + '\n' + s.url;
+  const l = document.createElement('div');
+  l.className = 'l';
+  l.textContent = (s.name[0] || '?').toUpperCase();
+  l.style.background = color(s.host);
+  const n = document.createElement('div');
+  n.className = 'n';
+  n.textContent = s.title;
+  const x = document.createElement('button');
+  x.className = 'x';
+  x.textContent = '×';
+  x.title = 'Remove this shortcut';
+  x.onclick = (e) => {
+    e.preventDefault();
+    window.chrome.webview.postMessage({ cmd: 'hide_site', host: s.host });
+    a.remove();
+  };
+  a.append(l, n, x);
+  box.appendChild(a);
+}
+</script>
+</body></html>

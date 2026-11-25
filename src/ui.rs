@@ -435,6 +435,7 @@ pub fn command_for(name: &str) -> Option<u16> {
         "reopen" => CMD_REOPEN_TAB,
         "fullscreen" => CMD_FULLSCREEN,
         "downloads" => CMD_DOWNLOADS,
+        "history" => CMD_HISTORY,
         _ => return None,
     })
 }
@@ -467,6 +468,7 @@ fn on_message(json: &str) {
             post_update();
             crate::saved::sync();
             crate::extensions::toolbar_sync();
+            crate::downloads::sync_bar();
             // Once per start (not after an Update restart): offer to become the default browser.
             let first = !DEFAULT_ASKED.with(|a| a.replace(true));
             if first && !std::env::args().any(|a| a == "--restart" || a == "--window") {
@@ -475,6 +477,7 @@ fn on_message(json: &str) {
             if first {
                 crate::passwords::show_result(); // after a password import
                 crate::passwords::import_from_args();
+                crate::updater::on_ready(); // What's new, daily update check
             }
         }
         "drag" => {
@@ -550,6 +553,7 @@ fn on_message(json: &str) {
             let cmd = match s_str("which").as_str() {
                 "extensions" => CMD_EXT_MENU,
                 "adblock" => CMD_ADBLOCK_MENU,
+                "downloads" => CMD_DL_POPUP,
                 _ => CMD_MENU,
             };
             util::post(hwnd, WM_APP_COMMAND, cmd as usize, 0);

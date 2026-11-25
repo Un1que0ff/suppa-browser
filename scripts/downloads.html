@@ -1,0 +1,161 @@
+<!doctype html>
+<!-- Suppa Browser - Downloads page (https://suppa.downloads/). Edit, then press "Update" in the browser. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Downloads</title>
+<style>
+  :root {
+    --bg: #161616; --panel: #1f1f1f; --field: #272727; --btn: #2e2e2e; --btn-hover: #3b3b3b;
+    --fg: #ececec; --muted: #8e8e8e; --border: #383838; --accent: #b07cff; --on-accent: #1c1c1c;
+    --radius: 10px; --r-btn: max(0px, calc(var(--radius) - 1px)); --r-box: calc(var(--radius) + 4px);
+  }
+  body.light { --bg: #f2f2f2; --panel: #ffffff; --field: #ffffff; --btn: #e5e5e5; --btn-hover: #d8d8d8; --fg: #1c1c1c; --muted: #6b6b6b; --border: #d0d0d0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 10.5pt "Segoe UI", system-ui, sans-serif; }
+  body.squircle *, body.squircle *::before { corner-shape: squircle; }
+  main { max-width: 900px; margin: 0 auto; padding: 26px 28px 60px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 16px; }
+  .top { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .top input { flex: 1 1 260px; }
+  button {
+    height: 30px; padding: 0 14px; background: var(--btn); color: var(--fg); border: 1px solid var(--border);
+    border-radius: var(--r-btn); font: inherit; cursor: pointer; white-space: nowrap;
+  }
+  button:hover { background: var(--btn-hover); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.danger:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
+  .small { height: 26px; padding: 0 10px; font-size: 9pt; }
+  input[type=text] {
+    height: 32px; background: var(--field); color: var(--fg); border: 1px solid var(--border);
+    border-radius: var(--r-btn); padding: 0 12px; font: inherit; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  section { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-box); padding: 4px 14px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); min-height: 56px; }
+  .row:first-child { border-top: none; }
+  .ic {
+    width: 34px; height: 34px; flex: 0 0 auto; border-radius: var(--r-btn); background: var(--btn);
+    display: grid; place-items: center; font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  }
+  .what { flex: 1 1 auto; min-width: 0; }
+  .what b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .what b.link { cursor: pointer; }
+  .what b.link:hover { text-decoration: underline; }
+  .what b.gone { text-decoration: line-through; color: var(--muted); }
+  .what small { display: block; color: var(--muted); font-size: 9pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { height: 4px; border-radius: 2px; background: var(--btn); margin-top: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .acts { display: flex; gap: 6px; flex: 0 0 auto; }
+  .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+  ::-webkit-scrollbar { width: 12px; background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--btn-hover); border: 3px solid var(--bg); border-radius: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Downloads</h1>
+  <div class="top">
+    <input type="text" id="q" placeholder="Search downloads" spellcheck="false">
+    <button id="folder">Open downloads folder</button>
+    <button id="clear" class="danger">Clear list</button>
+  </div>
+  <section id="list"></section>
+</main>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const post = (m) => window.chrome.webview.postMessage(m);
+const act = (op, id) => post({ cmd: 'dl', op, id: id || 0 });
+let items = [];
+
+function onColor(hex) {
+  const n = parseInt((hex || '#b07cff').slice(1), 16);
+  return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 160 ? '#1c1c1c' : '#ffffff';
+}
+function theme(S) {
+  document.body.classList.toggle('light', !S.dark);
+  document.body.classList.toggle('squircle', S.corner_shape === 'squircle');
+  const c = S.palette || S.colors || {};
+  for (const n of ['bg', 'panel', 'field', 'btn', 'btn-hover', 'fg', 'muted', 'border']) {
+    if (c[n]) document.body.style.setProperty('--' + n, c[n]); else document.body.style.removeProperty('--' + n);
+  }
+  const acc = S.accent === 'cycle' ? '#b07cff' : S.accent === 'windows' ? S.windows_accent : S.accent;
+  document.body.style.setProperty('--accent', acc);
+  document.body.style.setProperty('--on-accent', S.on_accent === 'black' ? '#1c1c1c' : S.on_accent === 'white' ? '#ffffff' : onColor(acc));
+  document.documentElement.style.setProperty('--radius', Math.round((S.radius || 10) * (S.corner_shape === 'squircle' ? 1.6 : 1)) + 'px');
+}
+function host(url) { try { return new URL(url).host.replace(/^www\./, ''); } catch (e) { return ''; } }
+
+function render() {
+  const box = $('list');
+  box.textContent = '';
+  const q = $('q').value.trim().toLowerCase();
+  const list = items.filter((d) => !q || d.name.toLowerCase().includes(q) || d.url.toLowerCase().includes(q));
+  box.hidden = false;
+  if (!list.length) {
+    const e = document.createElement('div');
+    e.className = 'empty';
+    e.textContent = q ? 'Nothing found.' : 'No downloads yet.';
+    box.appendChild(e);
+    return;
+  }
+  for (const d of list) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const ic = document.createElement('div');
+    ic.className = 'ic';
+    ic.textContent = (d.name.includes('.') ? d.name.split('.').pop() : 'file').slice(0, 4);
+    const what = document.createElement('div');
+    what.className = 'what';
+    const b = document.createElement('b');
+    b.textContent = d.name;
+    b.title = d.path;
+    if (d.exists) { b.className = 'link'; b.onclick = () => act('open', d.id); }
+    else if (d.state === 'done') b.className = 'gone';
+    const s = document.createElement('small');
+    const when = new Date(d.t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    s.textContent = d.status + '  ·  ' + host(d.url) + '  ·  ' + when;
+    what.append(b, s);
+    if (d.state === 'active' || d.state === 'paused') {
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      const i = document.createElement('i');
+      i.style.width = d.total > 0 ? Math.min(100, d.got * 100 / d.total) + '%' : '30%';
+      bar.appendChild(i);
+      what.appendChild(bar);
+    }
+    const acts = document.createElement('div');
+    acts.className = 'acts';
+    const btn = (text, op, cls) => {
+      const x = document.createElement('button');
+      x.className = 'small' + (cls ? ' ' + cls : '');
+      x.textContent = text;
+      x.onclick = () => act(op, d.id);
+      acts.appendChild(x);
+    };
+    if (d.state === 'active') { btn('Pause', 'pause'); btn('Cancel', 'cancel'); }
+    else if (d.state === 'paused') { btn('Resume', 'resume', 'primary'); btn('Cancel', 'cancel'); }
+    else if (d.exists) { btn('Open', 'open'); btn('Show in folder', 'folder'); }
+    else btn('Download again', 'retry');
+    if (d.state !== 'active') btn('×', 'remove');
+    row.append(ic, what, acts);
+    box.appendChild(row);
+  }
+}
+
+window.chrome.webview.addEventListener('message', (e) => {
+  const m = e.data;
+  if (!m) return;
+  if (m.type === 'settings') theme(m);
+  else if (m.type === 'dl_list') { items = m.items; render(); }
+});
+$('q').addEventListener('input', render);
+$('folder').onclick = () => act('open_folder');
+$('clear').onclick = () => act('clear');
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { post({ cmd: 'get' }); post({ cmd: 'list' }); } });
+post({ cmd: 'get' });
+post({ cmd: 'list' });
+</script>
+</body>
+</html>

@@ -22,7 +22,9 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 - **Your layout** - put tabs, address bar and saved tabs each where you like: top, bottom, or a column on the left/right (e.g. address bar on top, tabs and saved tabs on the left).
 - **Your look** - darker / dark / light / lighter theme, a tint over the whole interface, any accent colour (or the Windows accent), every interface colour, round or squircle corners, which tab corners are rounded, five icon styles, interface scale.
 - **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark import.
-- **Password manager** - see, search, copy and delete saved passwords; import them from Firefox, Chrome, Edge or Brave and export them to a `.csv` file.
+- **Password manager** - see, search, copy and delete saved passwords (Windows Hello or your Windows password is asked first); import them from Firefox, Chrome, Edge or Brave and export them to a `.csv` file.
+- **History, downloads and shortcuts** - a searchable History page, a downloads popup next to ≡ with progress, and your most-used sites on the start page.
+- **Updates itself** - checks GitHub once a day; installed with the setup, it updates with one click and shows what is new.
 - **Hackable** - the whole interface is plain HTML/CSS/JS in a folder next to the exe; edit it and press **Update**.
 
 ---
@@ -39,6 +41,8 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 | **Saved tabs** - folders open as menus; drag to sort | **Settings** - grouped in tabs on the left: look, corners, layout, privacy, passwords, backup, update |
 | ![Password manager](docs/screenshots/passwords.png) | ![Tabs on the left, red tint](docs/screenshots/layout-tint.png) |
 | **Password manager** - search, show, copy, delete; import from Firefox, Chrome, Edge or Brave and export to `.csv` | **Your layout and look** - tabs on the left, address bar on top, dark theme with a 20% red tint and squircle corners |
+| ![History](docs/screenshots/history.png) | ![Start page and downloads](docs/screenshots/downloads-start.png) |
+| **History** (`Ctrl+H`) - grouped by day, with search | **Start page shortcuts** (your most-used sites) and the **downloads popup** next to ≡ |
 
 ![Custom colours](docs/screenshots/settings-colors.png)
 *Settings → Custom colours: change every colour of the interface (separately for the light and dark theme).*
@@ -80,6 +84,7 @@ The only connections Suppa itself makes:
 |---|---|---|
 | First start, then every 4 days | easylist.to, ublockorigin.github.io, secure.fanboy.co.nz, raw.githubusercontent.com | download the ad-block filter lists |
 | Only when you click **Add to Suppa** | clients2.google.com | download that extension from the Chrome Web Store |
+| Once a day (can be turned off in Settings → Update and files), and when you click **Check for updates** | api.github.com, github.com | read the newest Suppa version number and its release notes; download the update when you click **Update now** |
 | What you type in the address bar | the search engine you chose (Google, DuckDuckGo, Bing, Brave) | your search |
 
 Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` requests are switched off, Edge shopping/translate/SmartScreen extras are disabled, incognito tabs keep nothing after closing.
@@ -126,15 +131,24 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 
 ### Passwords, backup and import
 - Passwords and form data are saved and filled in (can be turned off).
-- **Password manager**: Settings → Passwords lists every saved password with search, Show, Copy, Open and Delete (deleting takes effect when Suppa restarts; the engine keeps its store locked while it runs). **Export** writes them all to a `.csv` file that other browsers can import.
+- **Password manager**: Settings → Passwords lists every saved password with search, Show, Copy, Open and Delete (deleting takes effect when Suppa restarts; the engine keeps its store locked while it runs). **Export** writes them all to a `.csv` file that other browsers can import. Show, Copy and Export first ask Windows who you are (**Windows Hello** PIN, fingerprint or face, or your Windows password); one check is good for a minute.
 - **Backup**: one `.zip` with settings, bar sizes, saved tabs, open tabs, scripts, extensions, saved passwords, form data and website logins. **Restore** applies it on the next start. (Passwords are encrypted by Windows for your account, so they restore on the same Windows account.)
 - **Import bookmarks** from Chrome, Edge, Brave, Vivaldi, Opera or Firefox (found automatically) or from an exported bookmarks `.html` file.
 - **Import passwords** from a Firefox, Chrome, Edge or Brave password export (`.csv`): Settings → Passwords → Import, or ≡ → Backup and import → Import passwords from a file. In Brave: brave://password-manager/settings → Export passwords. In Firefox: about:logins → ⋯ → Export passwords. The passwords are encrypted for your Windows account straight away and go into Suppa's password store when it restarts; Suppa then offers to delete the export file (it holds the passwords as plain text).
 
-### Everything else
-- Themed menus everywhere (≡, tabs, saved tabs, page right-click) and themed dialogs. Right-click a page → **Inspect element** opens the developer tools on that element.
+### History and downloads
+- **History** (`Ctrl+H`, ≡ → History): every page opened in a normal tab, grouped by day, with search; delete single pages, the last hour or everything. The first start copies the history the engine already had. Incognito tabs are never recorded.
+- **Start page shortcuts**: the Suppa start page shows your 8 most-visited sites of the last 90 days (letters, no icons are loaded from the web); × removes one.
+- **Downloads**: no more Edge download box. When a download starts, a popup opens next to ≡ with its progress, and a download button with a progress ring stays there. Click = open / pause / resume, right-click = Show in folder, Cancel, Download again, Remove. The **Downloads page** (`Ctrl+J`) lists every download with search, Open, Show in folder, Pause / Resume and Cancel.
+
+### Updates
+- Once a day Suppa asks GitHub for the newest version (only the version number; turn it off in Settings → Update and files). ≡ → **Check for updates** asks right away.
+- Installed with the setup: **Update now** downloads the new `SuppaSetup.exe` and runs it silently; Suppa closes, updates and opens again with your tabs. A portable copy opens the download page instead.
+- After an update, **What's new** shows that version's release notes from GitHub (also in Settings → Update and files).
+
+### Everything else- Themed menus everywhere (≡, tabs, saved tabs, page right-click) and themed dialogs. Right-click a page → **Inspect element** opens the developer tools on that element.
 - Make Suppa your **default browser** (Settings or the prompt on first start).
-- Remembers window size and position, full screen (`F11`), print, DevTools, downloads, task manager.
+- Remembers window size and position, full screen (`F11`), print, DevTools, task manager.
 - Your own user scripts: `scripts\userscripts\*.js` (with `// @match` patterns).
 
 ---
@@ -155,7 +169,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Zoom in / out / reset |
 | `Alt+S` | Settings |
 | `F11` | Full screen |
-| `Ctrl+J` / `Shift+Esc` | Downloads / task manager |
+| `Ctrl+H` / `Ctrl+J` / `Shift+Esc` | History / downloads / task manager |
 | `Ctrl+P`, `Ctrl+F`, `F12` | Print, find, developer tools |
 
 ---
@@ -168,7 +182,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - Installs for your Windows account only, no administrator rights needed, in `%LOCALAPPDATA%\Programs\Suppa`.
 - Adds Start-menu and desktop shortcuts and an entry in **Windows Settings → Apps**, where you can uninstall it.
 - If the WebView2 Runtime is missing, it offers to download and install it from Microsoft.
-- Run a newer `SuppaSetup.exe` to update: your tabs, settings, own filter rules and user scripts are kept.
+- Suppa updates itself (Settings → Update and files), or run a newer `SuppaSetup.exe`: your tabs, settings, own filter rules and user scripts are kept.
 - The setup window follows your Suppa theme, accent colour and corner roundness.
 - Silent use: `SuppaSetup.exe /S` installs, `SuppaSetup.exe --uninstall /S` removes (your data is kept).
 
@@ -176,6 +190,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 
 **Build it yourself:** double-click **`build.bat`**. It installs anything missing (Rust, the Microsoft C++ Build Tools, the WebView2 runtime), then builds `dist\Suppa.exe` (with the `scripts` folder next to it) and `dist\SuppaSetup.exe`.
 
+**Code signing (optional):** with a code-signing certificate, `build.bat` signs `Suppa.exe` and `SuppaSetup.exe` so Windows SmartScreen trusts them. Set one of these in your environment before running it (never in a file in the project): `SUPPA_SIGN_THUMBPRINT` (a certificate in your Windows certificate store), `SUPPA_SIGN_PFX` + `SUPPA_SIGN_PASSWORD` (a `.pfx` file), or `SUPPA_SIGN_ARGS` (your own `signtool` arguments, e.g. for Azure Trusted Signing). It needs `signtool.exe` from the Windows SDK. Without them the build is unsigned, as before.
 ### Linux
 
 Suppa for Linux is the same browser on **GTK + WebKitGTK** (the engine of GNOME Web) instead of WebView2. It uses the same `scripts` folder, so the bar, menus, Settings, themes, layouts, saved tabs, tab groups, ad blocker, cookie-popup handling, incognito tabs, crash recovery and the Update button work the same way.
@@ -192,7 +207,7 @@ It installs for your user only (no root): the program in `~/.local/share/suppa-b
 
 **Build it yourself:** `sh linux/build.sh` installs what is missing (Rust, the WebKitGTK development files), then builds `dist/linux/` with `suppa`, `scripts/` and `install.sh`.
 
-Not in the Linux version (yet): Chrome extensions (WebKitGTK has no extension support), saved passwords and form filling, backup and bookmark import, the setup program, and freezing background tabs (they are unloaded after the set time instead). On Wayland desktops Suppa runs through XWayland so its menus can be placed exactly.
+Not in the Linux version (yet): Chrome extensions (WebKitGTK has no extension support), saved passwords and form filling, history and downloads pages, updates, backup and bookmark import, the setup program, and freezing background tabs (they are unloaded after the set time instead). On Wayland desktops Suppa runs through XWayland so its menus can be placed exactly.
 
 ---
 
@@ -207,7 +222,8 @@ Everything in `scripts\` next to `Suppa.exe` can be edited:
 | `settings.html` | the Settings tab (groups as tabs on the left: Appearance, Corners, Layout, Custom colours, Start and search, Tabs and memory, Privacy, Passwords, Extensions, Backup and import, Update and files) |
 | `cookies.js` | which cookie buttons are clicked |
 | `webstore.js` | the Chrome Web Store "Add to Suppa" helper |
-| `newtab.html` | the optional Suppa start page |
+| `newtab.html` | the optional Suppa start page (search and most-used sites) |
+| `history.html`, `downloads.html` | the History and Downloads pages |
 | `userscripts\*.js` | your own scripts for web pages |
 | `filters\*.txt` | your own ad-block rules |
 
@@ -232,7 +248,10 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 | `src/saved.rs` | Saved tabs bar, folders, star button |
 | `src/settings.rs` / `src/settings_page.rs` | settings.ini, session / the Settings tab |
 | `src/backup.rs` / `src/import.rs` | Backup & restore / bookmark import |
-| `src/passwords.rs` | Password manager: list, show, copy, delete, import and export (`.csv`), using the engine's own encrypted store |
+| `src/passwords.rs` / `src/auth.rs` | Password manager: list, show, copy, delete, import and export (`.csv`), using the engine's own encrypted store / Windows Hello or account password check |
+| `src/history.rs` / `src/downloads.rs` / `src/pages.rs` | History and start page shortcuts / downloads list and popup / the History and Downloads pages |
+| `src/updater.rs` | Updates from GitHub releases, What's new |
+| `src/sqlite.rs` | Windows' own SQLite, for the engine's password and history files |
 | `src/sleeper.rs` | Sleeping and unloading background tabs |
 | `src/scripts.rs` | The scripts folder, change detection, rebuild |
 | `src/default_browser.rs`, `src/shortcuts.rs`, `src/menu.rs`, `src/util.rs` | Default browser, shortcuts, ≡ menu, helpers |

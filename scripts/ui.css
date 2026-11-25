@@ -309,3 +309,13 @@ button.nav { width: calc(var(--ctl) + 2px); height: var(--ctl); padding: 0; disp
 #menu.hot .upd, #menu.busy .upd { display: inline; }
 #menu.hot:hover { background: var(--accent); color: var(--on-accent); }
 #menu.busy { color: var(--muted); }
+
+/* Download button next to the menu: a ring around it shows the progress */
+#dl { position: relative; }
+#dl[hidden] { display: none; }
+#dl .ring {
+  position: absolute; inset: 3px; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: conic-gradient(var(--accent) calc(var(--p, 0) * 360deg), transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+}
+#dl.busy .ring { opacity: 1; }

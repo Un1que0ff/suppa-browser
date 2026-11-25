@@ -34,6 +34,7 @@ pub fn map(vk: u32, ctrl: bool, shift: bool, alt: bool) -> Option<u16> {
         (false, false, false, VK_F6) => CMD_FOCUS_ADDRESS,
         (false, false, false, VK_F11) => CMD_FULLSCREEN,
         (true, false, false, v) if v == key('J') => CMD_DOWNLOADS,
+        (true, false, false, v) if v == key('H') => CMD_HISTORY,
         (false, true, false, VK_ESC) => CMD_TASK_MANAGER,
         (false, false, false, VK_ESC) if app::with(|s| s.fullscreen.is_some()).unwrap_or(false) => CMD_ESCAPE,
         (false, false, true, VK_HOME) => CMD_HOME,

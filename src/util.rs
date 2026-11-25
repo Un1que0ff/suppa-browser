@@ -250,3 +250,32 @@ pub fn set_clipboard(text: &str) -> bool {
         ok
     }
 }
+
+/// Opens Explorer with the file selected.
+pub fn show_in_folder(path: &str) {
+    if !Path::new(path).exists() {
+        if let Some(dir) = Path::new(path).parent() {
+            open_in_explorer(dir);
+        }
+        return;
+    }
+    unsafe {
+        ShellExecuteW(
+            None,
+            w!("open"),
+            w!("explorer.exe"),
+            &HSTRING::from(format!("/select,\"{path}\"")),
+            None,
+            windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL,
+        );
+    }
+}
+
+/// When this Suppa started (Unix milliseconds).
+pub fn start_unix_ms() -> i64 {
+    static T: std::sync::OnceLock<i64> = std::sync::OnceLock::new();
+    *T.get_or_init(|| {
+        let since = since_start_ms() as i64;
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0) - since
+    })
+}

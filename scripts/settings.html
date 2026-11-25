@@ -351,6 +351,17 @@
         <label class="sw"><input type="checkbox" id="autofill"><span></span></label>
       </div>
     </section>
+    <section data-win>
+      <h2>History and downloads</h2>
+      <div class="row">
+        <div class="label">History<small>Pages you opened in normal tabs (Ctrl+H). The start page shows your most-used sites from it</small></div>
+        <button data-action="history">Open history</button>
+      </div>
+      <div class="row">
+        <div class="label">Downloads<small>Everything you downloaded (Ctrl+J)</small></div>
+        <button data-action="downloads">Open downloads</button>
+      </div>
+    </section>
     <section>
       <h2>Private browsing</h2>
       <div class="row">
@@ -368,7 +379,7 @@
     <section>
       <h2>Saving</h2>
       <div class="row">
-        <div class="label">Save passwords<small>Offers to save passwords and fills them in next time</small></div>
+        <div class="label">Save passwords<small>Offers to save passwords and fills them in next time. Showing, copying or exporting them asks for your Windows PIN, fingerprint or password first</small></div>
         <label class="sw"><input type="checkbox" id="passwords"><span></span></label>
       </div>
     </section>
@@ -435,11 +446,23 @@
   </div>
 
   <div class="page" id="p-about" data-title="Update and files">
-    <section>
-      <h2>Update</h2>
+    <section data-win>
+      <h2>New versions</h2>
       <div class="row">
-        <div class="label">Update<small>Restarts Suppa and loads changes from the scripts folder; rebuilds Suppa.exe if the Rust code changed</small></div>
-        <button class="primary" data-action="update">Update now</button>
+        <div class="label">Check for updates automatically<small>Once a day Suppa asks GitHub for the newest version (only the version number is read; nothing about you is sent). Installed with the setup, Suppa updates itself with one click</small></div>
+        <label class="sw"><input type="checkbox" id="auto_update"><span></span></label>
+      </div>
+      <div class="row">
+        <div class="label">Check now<small>Or see what changed in this version</small></div>
+        <button class="primary" data-action="check_update">Check for updates</button>
+        <button data-action="whats_new">What's new</button>
+      </div>
+    </section>
+    <section>
+      <h2>Scripts</h2>
+      <div class="row">
+        <div class="label">Reload scripts<small>Restarts Suppa and loads changes from the scripts folder; rebuilds Suppa.exe if the Rust code changed</small></div>
+        <button data-action="update">Reload now</button>
       </div>
       <div class="row">
         <div class="label">Ad-block filter lists</div>
@@ -520,7 +543,7 @@ function render() {
   document.body.style.setProperty('--accent', acc);
   document.body.style.setProperty('--on-accent', S.on_accent === 'black' ? '#1c1c1c' : S.on_accent === 'white' ? '#ffffff' : onColor(acc));
   document.querySelectorAll('#on-accent button').forEach((b) => b.classList.toggle('primary', b.dataset.v === (S.on_accent || 'auto')));
-  for (const k of ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar']) $(k).checked = !!S[k];
+  for (const k of ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar', 'auto_update']) $(k).checked = !!S[k];
   renderLook();
   setRadius(S.radius, false);
   if (document.activeElement !== $('ui_scale')) $('ui_scale').value = S.ui_scale;
@@ -866,7 +889,7 @@ window.chrome.webview.addEventListener('message', (e) => {
   else if (m.type === 'pw_toast') toast(m.text);
 });
 
-for (const k of ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar']) {
+for (const k of ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar', 'auto_update']) {
   $(k).addEventListener('change', () => set(k, $(k).checked));
 }
 for (const k of ['sleep', 'discard']) $(k).addEventListener('change', () => set(k, Number($(k).value) || 0));

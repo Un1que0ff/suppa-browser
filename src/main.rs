@@ -18,18 +18,29 @@
 //   settings.rs    settings.ini + session restore
 //   newtab.rs      built-in new-tab page
 //   util.rs        helpers (strings, paths, URL handling, downloads)
+//   passwords.rs   password manager: import, export, show, delete
+//   auth.rs        Windows Hello / account password check before passwords are shown
+//   history.rs     browsing history (History page, start page shortcuts)
+//   downloads.rs   downloads list, popup next to the menu, Downloads page
+//   pages.rs       History and Downloads pages (suppa.history / suppa.downloads)
+//   updater.rs     updates from GitHub releases, What's new
+//   sqlite.rs      Windows' SQLite (the engine's password and history files)
 #![windows_subsystem = "windows"]
 
 mod adblock;
 mod app;
+mod auth;
 mod extensions;
 mod menu;
 mod backup;
 mod default_browser;
+mod downloads;
 mod extpopup;
 mod groups;
+mod history;
 mod import;
 mod newtab;
+mod pages;
 mod passwords;
 mod popup;
 mod saved;
@@ -37,9 +48,11 @@ mod scripts;
 mod settings;
 mod settings_page;
 mod shortcuts;
+mod sqlite;
 mod sleeper;
 mod tabs;
 mod ui;
+mod updater;
 mod util;
 mod webview;
 mod window;

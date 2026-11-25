@@ -68,6 +68,7 @@ rem instead of their real paths (they would show your Windows user name).
 rem The flags are joined with the 0x1F separator so paths with spaces work.
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$f = @('-Ctarget-feature=+crt-static', ('--remap-path-prefix=' + $env:USERPROFILE + '=~'), ('--remap-path-prefix=' + (Get-Location).Path + '=.')); $env:CARGO_ENCODED_RUSTFLAGS = $f -join [char]0x1f; cargo build --release; exit $LASTEXITCODE"
 if errorlevel 1 goto :fail_build
+call :sign "target\release\Suppa.exe" || goto :end_fail
 
 if not exist "dist" mkdir "dist"
 copy /y "target\release\Suppa.exe" "dist\Suppa.exe" >nul
@@ -88,6 +89,7 @@ set "SETUP_ERR=%errorlevel%"
 popd
 if not "%SETUP_ERR%"=="0" goto :fail_build
 copy /y "installer\target\release\SuppaSetup.exe" "dist\SuppaSetup.exe" >nul
+call :sign "dist\SuppaSetup.exe" || goto :end_fail
 
 echo.
 echo ============================================
@@ -113,3 +115,36 @@ echo ERROR: Build failed - see messages above.
 echo.
 if /i not "%~1"=="/nopause" pause
 exit /b 1
+
+rem ---------------------------------------------------------------
+rem Code signing (optional): Windows SmartScreen trusts signed files.
+rem Nothing happens unless ONE of these is set before running build.bat
+rem (set them in your own environment - never write them into a file here):
+rem   SUPPA_SIGN_THUMBPRINT   SHA1 thumbprint of a code-signing certificate
+rem                           in your Windows certificate store
+rem   SUPPA_SIGN_PFX          a .pfx certificate file (+ SUPPA_SIGN_PASSWORD)
+rem   SUPPA_SIGN_ARGS         your own signtool arguments, e.g. for Azure
+rem                           Trusted Signing: /fd sha256 /tr ... /dlib ... /dmdf ...
+rem ---------------------------------------------------------------
+:sign
+if "%SUPPA_SIGN_THUMBPRINT%%SUPPA_SIGN_PFX%%SUPPA_SIGN_ARGS%"=="" exit /b 0
+set "SIGNTOOL="
+for /f "delims=" %%S in ('dir /b /s "%ProgramFiles(x86)%\Windows Kits\10\bin\signtool.exe" 2^>nul ^| findstr /i "\\x64\\"') do set "SIGNTOOL=%%S"
+if not defined SIGNTOOL (
+  echo WARNING: signtool.exe not found ^(Windows SDK^) - %~1 is not signed.
+  exit /b 0
+)
+set "TS=/fd sha256 /tr http://timestamp.digicert.com /td sha256"
+if defined SUPPA_SIGN_ARGS (
+  "%SIGNTOOL%" sign %SUPPA_SIGN_ARGS% "%~1"
+) else if defined SUPPA_SIGN_PFX (
+  "%SIGNTOOL%" sign /f "%SUPPA_SIGN_PFX%" /p "%SUPPA_SIGN_PASSWORD%" %TS% "%~1"
+) else (
+  "%SIGNTOOL%" sign /sha1 %SUPPA_SIGN_THUMBPRINT% %TS% "%~1"
+)
+if errorlevel 1 (
+  echo ERROR: signing %~1 failed.
+  exit /b 1
+)
+echo Signed: %~1
+exit /b 0

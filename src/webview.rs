@@ -166,7 +166,7 @@ pub fn create(id: u32) {
     }
 }
 
-fn get_str(f: impl FnOnce(&mut PWSTR) -> windows::core::Result<()>) -> String {
+pub fn get_str(f: impl FnOnce(&mut PWSTR) -> windows::core::Result<()>) -> String {
     let mut p = PWSTR::null();
     if f(&mut p).is_ok() { util::take_pwstr(p) } else { String::new() }
 }
@@ -426,12 +426,22 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
             &SourceChangedEventHandler::create(Box::new(move |sender, _| {
                 let Some(sender) = sender else { return Ok(()) };
                 let url = get_str(|p| sender.Source(p));
-                app::with(|s| {
+                let record = app::with(|s| {
+                    let mut rec = None;
                     if let Some(t) = s.tab_mut(id) {
-                        t.url = url;
+                        if !t.incognito && t.url != url {
+                            rec = Some(t.title.clone());
+                        }
+                        t.url = url.clone();
                     }
                     ui::update_tab_by_id(s, id);
-                });
+                    rec.filter(|_| !s.secondary)
+                })
+                .flatten();
+                if record.is_some() {
+                    // The title still belongs to the previous page; it follows below.
+                    crate::history::record(&url, "");
+                }
                 Ok(())
             })),
             &mut token,
@@ -441,12 +451,21 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
             &DocumentTitleChangedEventHandler::create(Box::new(move |sender, _| {
                 let Some(sender) = sender else { return Ok(()) };
                 let title = get_str(|p| sender.DocumentTitle(p));
-                app::with(|s| {
+                let page = app::with(|s| {
+                    let mut page = None;
                     if let Some(t) = s.tab_mut(id) {
-                        t.title = title;
+                        t.title = title.clone();
+                        if !t.incognito {
+                            page = Some(t.url.clone());
+                        }
                     }
                     ui::update_tab_by_id(s, id);
-                });
+                    page.filter(|_| !s.secondary)
+                })
+                .flatten();
+                if let Some(url) = page {
+                    crate::history::set_title(&url, &title);
+                }
                 Ok(())
             })),
             &mut token,
@@ -520,6 +539,19 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
             &mut token,
         );
 
+        // Downloads: our own list and popup instead of the engine's box.
+        if let Ok(w4) = wv.cast::<ICoreWebView2_4>() {
+            let _ = w4.add_DownloadStarting(
+                &DownloadStartingEventHandler::create(Box::new(move |_, args| {
+                    let Some(args) = args else { return Ok(()) };
+                    let incognito = app::with(|s| s.tab(id).map(|t| t.incognito)).flatten().unwrap_or(false);
+                    crate::downloads::on_starting(&args, incognito);
+                    Ok(())
+                })),
+                &mut token,
+            );
+        }
+
         // Tab icon.
         if let Ok(w15) = wv.cast::<ICoreWebView2_15>() {
             let _ = w15.add_FaviconChanged(
@@ -548,6 +580,12 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                 if util::host_of(&url) == tabs::SETTINGS_HOST && url.starts_with("https://") {
                     let json = get_str(|p| args.WebMessageAsJson(p));
                     crate::settings_page::on_message(&sender, &json);
+                    return Ok(());
+                }
+                let host = util::host_of(&url);
+                if crate::pages::is_page(&host) && url.starts_with("https://") {
+                    let json = get_str(|p| args.WebMessageAsJson(p));
+                    crate::pages::on_message(&sender, &host, &json);
                     return Ok(());
                 }
                 let msg = get_str(|p| args.TryGetWebMessageAsString(p));
@@ -716,6 +754,26 @@ fn on_resource_requested(id: u32, args: &ICoreWebView2WebResourceRequestedEventA
             let path = uri.split_once("://").and_then(|(_, r)| r.split_once('/')).map(|(_, p)| p).unwrap_or("");
             let path = path.split(['?', '#']).next().unwrap_or("");
             let file = if path.is_empty() { "settings.html" } else { path };
+            let (status, mime, body) = match crate::scripts::serve(&format!("https://x/{file}")) {
+                Some((m, b)) => (200, m, b),
+                None => (404, "text/plain", b"not found".to_vec()),
+            };
+            let stream = SHCreateMemStream(Some(&body));
+            if let Ok(resp) = env.CreateWebResourceResponse(
+                stream.as_ref(),
+                status,
+                w!("OK"),
+                &HSTRING::from(format!("Content-Type: {mime}\r\nCache-Control: no-store")),
+            ) {
+                let _ = args.SetResponse(&resp);
+            }
+            return;
+        }
+        // History and Downloads pages (scripts\history.html, downloads.html).
+        if let Some(file) = crate::pages::file_for(&util::host_of(&uri)) {
+            let path = uri.split_once("://").and_then(|(_, r)| r.split_once('/')).map(|(_, p)| p).unwrap_or("");
+            let path = path.split(['?', '#']).next().unwrap_or("");
+            let file = if path.is_empty() { file } else { path };
             let (status, mime, body) = match crate::scripts::serve(&format!("https://x/{file}")) {
                 Some((m, b)) => (200, m, b),
                 None => (404, "text/plain", b"not found".to_vec()),

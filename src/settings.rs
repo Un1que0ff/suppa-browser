@@ -23,6 +23,8 @@ pub struct Settings {
     pub accent: String,
     /// Click "Accept all" on cookie banners automatically (scripts\cookies.js).
     pub auto_cookies: bool,
+    /// Look for a new Suppa on GitHub once a day.
+    pub auto_update: bool,
     /// Offer to save passwords and fill them in.
     pub save_passwords: bool,
     /// Fill in addresses / names in forms.
@@ -251,6 +253,7 @@ impl Default for Settings {
             home: DEFAULT_HOME.to_string(),
             accent: "cycle".to_string(),
             auto_cookies: true,
+            auto_update: true,
             save_passwords: true,
             autofill: true,
             show_saved: true,
@@ -349,6 +352,7 @@ pub fn load() -> Settings {
             "home" => s.home = if v.is_empty() { DEFAULT_HOME.to_string() } else { v.to_string() },
             "accent" => s.accent = valid_accent(v),
             "cookies" => s.auto_cookies = v != "0",
+            "auto_update" => s.auto_update = v != "0",
             "passwords" => s.save_passwords = v != "0",
             "autofill" => s.autofill = v != "0",
             "saved_bar" => s.show_saved = v != "0",
@@ -422,6 +426,7 @@ pub fn save(s: &Settings) {
     out.push_str(&format!("home={}\n", s.home));
     out.push_str(&format!("accent={}\n", s.accent));
     out.push_str(&format!("cookies={}\n", s.auto_cookies as u8));
+    out.push_str(&format!("auto_update={}\n", s.auto_update as u8));
     out.push_str(&format!("passwords={}\n", s.save_passwords as u8));
     out.push_str(&format!("autofill={}\n", s.autofill as u8));
     out.push_str(&format!("saved_bar={}\n", s.show_saved as u8));

@@ -890,6 +890,20 @@ window.chrome.webview.addEventListener('message', (e) => {
     startGroupRename(m.id);
   } else if (m.type === 'rename') {
     startRename(m.path);
+  } else if (m.type === 'dl') {
+    // Download button next to ≡: shown once there are downloads this session;
+    // the ring fills with the progress of running downloads.
+    const b = $('dl');
+    b.hidden = !m.show;
+    b.classList.toggle('busy', m.active > 0);
+    b.style.setProperty('--p', m.active > 0 && m.p >= 0 ? m.p : (m.active > 0 ? 0.15 : 1));
+    b.title = m.active > 0 ? 'Downloads - ' + m.active + ' running' : 'Downloads';
+    layoutTabs();
+  } else if (m.type === 'dl_open') {
+    // A download started: its popup opens under this button (or ≡).
+    const b = $('dl').hidden ? $('menu') : $('dl');
+    const r = b.getBoundingClientRect();
+    post({ cmd: 'menu', which: 'downloads', x: r.right, y: r.bottom + 4 });
   } else if (m.type === 'update') {
     const b = $('menu');
     b.classList.toggle('hot', !!m.available && !m.building);
@@ -919,6 +933,10 @@ $('star').onclick = () => post({ cmd: 'star' });
 $('min').onclick = () => run('minimize');
 $('max').onclick = () => run('maximize');
 $('close').onclick = () => run('close_window');
+$('dl').onclick = () => {
+  const r = $('dl').getBoundingClientRect();
+  post({ cmd: 'menu', which: 'downloads', x: r.right, y: r.bottom + 4 });
+};
 $('menu').onclick = () => {
   const r = $('menu').getBoundingClientRect();
   post({ cmd: 'menu', which: 'main', x: r.right, y: r.bottom + 4 });

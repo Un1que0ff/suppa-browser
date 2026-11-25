@@ -26,6 +26,8 @@ pub const WM_APP_NC_DRAG: u32 = WM_APP + 8;
 pub const WM_APP_BUILD_DONE: u32 = WM_APP + 9;
 /// A file changed in the scripts folder / Rust source / exe folder.
 pub const WM_APP_FILES_CHANGED: u32 = WM_APP + 10;
+/// Runs the closures queued with later.
+pub const WM_APP_LATER: u32 = WM_APP + 11;
 
 pub const TIMER_SLEEP: usize = 1;
 /// Checks the scripts folder for changes (lights up the Update button).
@@ -53,6 +55,17 @@ pub const CMD_IMPORT_MENU: u16 = 138;
 pub const CMD_IMPORT_PASSWORDS: u16 = 139;
 pub const CMD_EXPORT_PASSWORDS: u16 = 140;
 pub const CMD_RESTART: u16 = 141;
+pub const CMD_AUTH_OK: u16 = 142;
+pub const CMD_AUTH_FAIL: u16 = 143;
+pub const CMD_HISTORY: u16 = 144;
+pub const CMD_DL_POPUP: u16 = 145;
+pub const CMD_CHECK_UPDATE: u16 = 146;
+pub const CMD_INSTALL_UPDATE: u16 = 147;
+pub const CMD_WHATS_NEW: u16 = 148;
+pub const CMD_DL_CHANGED: u16 = 149;
+pub const CMD_UPDATE_FOUND: u16 = 150;
+pub const CMD_NOTES_READY: u16 = 151;
+pub const CMD_DL_POLL: u16 = 152;
 
 pub const CMD_NEW_TAB: u16 = 100;
 pub const CMD_CLOSE_TAB: u16 = 101;
@@ -234,4 +247,23 @@ pub fn with<R>(f: impl FnOnce(&mut State) -> R) -> Option<R> {
 
 pub fn hwnd() -> HWND {
     HWND(MAIN_HWND.load(std::sync::atomic::Ordering::Relaxed) as *mut _)
+}
+
+thread_local! {
+    static LATER: std::cell::RefCell<Vec<Box<dyn FnOnce()>>> = std::cell::RefCell::new(Vec::new());
+}
+
+/// Runs `f` on the UI thread after the current event (never inside a WebView
+/// event, so dialogs and file windows are safe there).
+pub fn later(f: impl FnOnce() + 'static) {
+    LATER.with(|l| l.borrow_mut().push(Box::new(f)));
+    crate::util::post(hwnd(), WM_APP_LATER, 0, 0);
+}
+
+/// WM_APP_LATER: run what is queued.
+pub fn run_later() {
+    let list = LATER.with(|l| std::mem::take(&mut *l.borrow_mut()));
+    for f in list {
+        f();
+    }
 }

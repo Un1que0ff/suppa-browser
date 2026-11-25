@@ -1,0 +1,178 @@
+<!doctype html>
+<!-- Suppa Browser - History page (https://suppa.history/). Edit, then press "Update" in the browser. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>History</title>
+<style>
+  :root {
+    --bg: #161616; --panel: #1f1f1f; --field: #272727; --btn: #2e2e2e; --btn-hover: #3b3b3b;
+    --fg: #ececec; --muted: #8e8e8e; --border: #383838; --accent: #b07cff; --on-accent: #1c1c1c;
+    --radius: 10px; --r-btn: max(0px, calc(var(--radius) - 1px)); --r-box: calc(var(--radius) + 4px);
+  }
+  body.light { --bg: #f2f2f2; --panel: #ffffff; --field: #ffffff; --btn: #e5e5e5; --btn-hover: #d8d8d8; --fg: #1c1c1c; --muted: #6b6b6b; --border: #d0d0d0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 10.5pt "Segoe UI", system-ui, sans-serif; }
+  body.squircle *, body.squircle *::before { corner-shape: squircle; }
+  main { max-width: 900px; margin: 0 auto; padding: 26px 28px 60px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 16px; }
+  .top { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .top input { flex: 1 1 260px; }
+  button {
+    height: 30px; padding: 0 14px; background: var(--btn); color: var(--fg); border: 1px solid var(--border);
+    border-radius: var(--r-btn); font: inherit; cursor: pointer; white-space: nowrap;
+  }
+  button:hover { background: var(--btn-hover); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.danger:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
+  button[hidden] { display: none; }
+  input[type=text] {
+    height: 32px; background: var(--field); color: var(--fg); border: 1px solid var(--border);
+    border-radius: var(--r-btn); padding: 0 12px; font: inherit; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  section { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-box); padding: 4px 14px; margin-bottom: 14px; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 12px 0 4px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid var(--border); min-height: 40px; }
+  h2 + .row { border-top: none; }
+  .row input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; flex: 0 0 auto; }
+  .time { color: var(--muted); width: 44px; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+  .what { flex: 1 1 auto; min-width: 0; display: flex; gap: 10px; align-items: baseline; }
+  .what a { color: var(--fg); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .what a:hover { text-decoration: underline; }
+  .what small { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+  .x { height: 26px; width: 26px; padding: 0; background: transparent; border-color: transparent; color: var(--muted); opacity: 0; }
+  .row:hover .x { opacity: 1; }
+  .x:hover { color: var(--fg); }
+  .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+  #more { display: block; margin: 10px auto; }
+  ::-webkit-scrollbar { width: 12px; background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--btn-hover); border: 3px solid var(--bg); border-radius: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>History</h1>
+  <div class="top">
+    <input type="text" id="q" placeholder="Search history" spellcheck="false" autofocus>
+    <button id="del-sel" class="danger" hidden>Delete selected</button>
+    <button id="clear-hour">Delete last hour</button>
+    <button id="clear-all" class="danger">Delete all history</button>
+  </div>
+  <div id="list"></div>
+  <button id="more" hidden>Show more</button>
+</main>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const post = (m) => window.chrome.webview.postMessage(m);
+let items = [];
+let sel = new Set();
+const key = (it) => it.t + ' ' + it.url;
+
+// ---- theme (same values as Settings) ----
+function onColor(hex) {
+  const n = parseInt((hex || '#b07cff').slice(1), 16);
+  return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 160 ? '#1c1c1c' : '#ffffff';
+}
+function theme(S) {
+  document.body.classList.toggle('light', !S.dark);
+  document.body.classList.toggle('squircle', S.corner_shape === 'squircle');
+  const c = S.palette || S.colors || {};
+  for (const n of ['bg', 'panel', 'field', 'btn', 'btn-hover', 'fg', 'muted', 'border']) {
+    if (c[n]) document.body.style.setProperty('--' + n, c[n]); else document.body.style.removeProperty('--' + n);
+  }
+  const acc = S.accent === 'cycle' ? '#b07cff' : S.accent === 'windows' ? S.windows_accent : S.accent;
+  document.body.style.setProperty('--accent', acc);
+  document.body.style.setProperty('--on-accent', S.on_accent === 'black' ? '#1c1c1c' : S.on_accent === 'white' ? '#ffffff' : onColor(acc));
+  document.documentElement.style.setProperty('--radius', Math.round((S.radius || 10) * (S.corner_shape === 'squircle' ? 1.6 : 1)) + 'px');
+}
+
+function dayName(t) {
+  const d = new Date(t), today = new Date();
+  const start = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((start(today) - start(d)) / 86400000);
+  const long = d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return diff === 0 ? 'Today - ' + long : diff === 1 ? 'Yesterday - ' + long : long;
+}
+function host(url) { try { return new URL(url).host.replace(/^www\./, ''); } catch (e) { return url; } }
+
+function render() {
+  const box = $('list');
+  box.textContent = '';
+  if (!items.length) {
+    const e = document.createElement('div');
+    e.className = 'empty';
+    e.textContent = $('q').value.trim() ? 'Nothing found.' : 'No history yet.';
+    box.appendChild(e);
+  }
+  let sec = null, day = '';
+  for (const it of items) {
+    const dn = dayName(it.t);
+    if (dn !== day) {
+      day = dn;
+      sec = document.createElement('section');
+      const h = document.createElement('h2');
+      h.textContent = dn;
+      sec.appendChild(h);
+      box.appendChild(sec);
+    }
+    const row = document.createElement('div');
+    row.className = 'row';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = sel.has(key(it));
+    cb.onchange = () => { cb.checked ? sel.add(key(it)) : sel.delete(key(it)); $('del-sel').hidden = !sel.size; };
+    const tm = document.createElement('span');
+    tm.className = 'time';
+    tm.textContent = new Date(it.t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const what = document.createElement('div');
+    what.className = 'what';
+    const a = document.createElement('a');
+    a.href = it.url;
+    a.textContent = it.title || it.url;
+    a.title = it.url;
+    const s = document.createElement('small');
+    s.textContent = host(it.url);
+    what.append(a, s);
+    const x = document.createElement('button');
+    x.className = 'x';
+    x.textContent = '×';
+    x.title = 'Delete from history';
+    x.onclick = () => post({ cmd: 'delete', items: [{ t: it.t, url: it.url }] });
+    row.append(cb, tm, what, x);
+    sec.appendChild(row);
+  }
+  $('del-sel').hidden = !sel.size;
+}
+
+function load(append) {
+  post({ cmd: 'list', q: $('q').value, offset: append ? items.length : 0 });
+}
+
+window.chrome.webview.addEventListener('message', (e) => {
+  const m = e.data;
+  if (!m) return;
+  if (m.type === 'settings') theme(m);
+  else if (m.type === 'hist') {
+    items = m.offset ? items.concat(m.items) : m.items;
+    $('more').hidden = !m.more;
+    render();
+  } else if (m.type === 'hist_changed') { sel.clear(); load(false); }
+});
+
+let qt = 0;
+$('q').addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(() => load(false), 150); });
+$('more').onclick = () => load(true);
+$('del-sel').onclick = () => {
+  const list = items.filter((it) => sel.has(key(it))).map((it) => ({ t: it.t, url: it.url }));
+  post({ cmd: 'delete', items: list });
+};
+$('clear-hour').onclick = () => post({ cmd: 'clear', since: Date.now() - 3600000 });
+$('clear-all').onclick = () => post({ cmd: 'clear', since: 0 });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { post({ cmd: 'get' }); load(false); } });
+post({ cmd: 'get' });
+load(false);
+</script>
+</body>
+</html>
