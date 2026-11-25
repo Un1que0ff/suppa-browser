@@ -90,6 +90,8 @@ pub fn run() {
         // A backup chosen in "Restore" is put in place now, before anything reads the files.
         if !secondary {
             crate::backup::apply_pending();
+            // Passwords imported from a file go into the engine's store now too.
+            crate::passwords::apply_pending();
         }
         scripts::ensure_defaults();
         START_SIGNATURE.with(|s| s.set(scripts::signature()));

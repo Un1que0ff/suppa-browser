@@ -7,8 +7,7 @@
 // Everything else goes into one folder "<Browser> - other bookmarks".
 // The other browsers' files are only read, never changed.
 //
-// Passwords are not imported: Chrome/Edge lock saved passwords so only they
-// can read them, and WebView2 has no way to add passwords from outside.
+// Passwords come from the other browser's own export file (.csv), see passwords.rs.
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
@@ -285,12 +284,15 @@ pub fn menu_items() -> Vec<Item> {
         items.push(Item::new(0, "No other browsers found").enabled(false));
     }
     items.push(Item::new(IMPORT_FILE, "Import bookmarks from a file (.html)..."));
+    items.push(Item::sep());
+    items.push(Item::new(IMPORT_PASSWORDS, "Import passwords from a file (Firefox, Chrome, Edge .csv)..."));
     items
 }
 
 pub const BACKUP: i64 = 70_000;
 pub const RESTORE: i64 = 70_001;
 pub const IMPORT_FILE: i64 = 70_002;
+pub const IMPORT_PASSWORDS: i64 = 70_003;
 pub const IMPORT_BASE: i64 = 70_100;
 
 /// Runs a choice from `menu_items`. Returns false if the id isn't ours.
@@ -298,6 +300,7 @@ pub fn run(id: i64) -> bool {
     match id {
         BACKUP => crate::backup::backup(),
         RESTORE => crate::backup::restore(),
+        IMPORT_PASSWORDS => crate::passwords::import_file(),
         IMPORT_FILE => {
             if let Some(f) = util::open_dialog("Import bookmarks", "Bookmarks file", "*.html;*.htm") {
                 let text = std::fs::read_to_string(&f).unwrap_or_default();

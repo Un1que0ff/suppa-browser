@@ -30,6 +30,7 @@ mod extpopup;
 mod groups;
 mod import;
 mod newtab;
+mod passwords;
 mod popup;
 mod saved;
 mod scripts;

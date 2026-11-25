@@ -472,6 +472,10 @@ fn on_message(json: &str) {
             if first && !std::env::args().any(|a| a == "--restart" || a == "--window") {
                 crate::default_browser::maybe_ask(corner_anchor());
             }
+            if first {
+                crate::passwords::show_result(); // after a password import
+                crate::passwords::import_from_args();
+            }
         }
         "drag" => {
             // Hit-test codes: caption = move the window, top edges = resize.

@@ -382,6 +382,19 @@ pub fn confirm(title: &str, text: &str, yes: &str, no: &str, on_yes: impl FnOnce
     });
 }
 
+/// Like `confirm`, but `on_pick` hears both answers: true = yes, false = no or closed.
+pub fn confirm_choice(title: &str, text: &str, yes: &str, no: &str, on_pick: impl FnOnce(bool) + 'static) {
+    let mut items = vec![Item::heading(title)];
+    if !text.is_empty() {
+        items.push(Item::text(text));
+    }
+    items.push(Item::sep());
+    items.push(Item::new(1, yes).hot(true));
+    items.push(Item::new(2, no));
+    // Own key: it is often shown right after a `confirm` closed.
+    show("dialog-choice", items, POINT::default(), false, move |pick| on_pick(pick == Some(1)));
+}
+
 /// Themed message with an OK button. The first line is the title.
 pub fn message(text: &str) {
     let (title, body) = match text.split_once("\n\n").or_else(|| text.split_once('\n')) {

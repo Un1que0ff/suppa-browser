@@ -21,7 +21,7 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 - **Saved tabs bar** with folders and drag & drop, a ☆ to save a site in one click.
 - **Your layout** - put tabs, address bar and saved tabs each where you like: top, bottom, or a column on the left/right (e.g. address bar on top, tabs and saved tabs on the left).
 - **Your look** - darker / dark / light / lighter theme, a tint over the whole interface, any accent colour (or the Windows accent), every interface colour, round or squircle corners, which tab corners are rounded, five icon styles, interface scale.
-- **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark import.
+- **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark and password import.
 - **Hackable** - the whole interface is plain HTML/CSS/JS in a folder next to the exe; edit it and press **Update**.
 
 ---
@@ -125,6 +125,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - Passwords and form data are saved and filled in (can be turned off). *Delete saved passwords* in Settings.
 - **Backup**: one `.zip` with settings, bar sizes, saved tabs, open tabs, scripts, extensions, saved passwords, form data and website logins. **Restore** applies it on the next start. (Passwords are encrypted by Windows for your account, so they restore on the same Windows account.)
 - **Import bookmarks** from Chrome, Edge, Brave, Vivaldi, Opera or Firefox (found automatically) or from an exported bookmarks `.html` file.
+- **Import passwords** from a Firefox, Chrome or Edge password export (`.csv`): ≡ → Backup and import → Import passwords from a file. In Firefox: about:logins → ⋯ → Export passwords. The passwords are encrypted for your Windows account straight away and go into Suppa's password store when it restarts; Suppa then offers to delete the export file (it holds the passwords as plain text).
 
 ### Everything else
 - Themed menus everywhere (≡, tabs, saved tabs, page right-click) and themed dialogs. Right-click a page → **Inspect element** opens the developer tools on that element.
@@ -227,6 +228,7 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 | `src/saved.rs` | Saved tabs bar, folders, star button |
 | `src/settings.rs` / `src/settings_page.rs` | settings.ini, session / the Settings tab |
 | `src/backup.rs` / `src/import.rs` | Backup & restore / bookmark import |
+| `src/passwords.rs` | Password import from a `.csv` export (written into the engine's own encrypted store) |
 | `src/sleeper.rs` | Sleeping and unloading background tabs |
 | `src/scripts.rs` | The scripts folder, change detection, rebuild |
 | `src/default_browser.rs`, `src/shortcuts.rs`, `src/menu.rs`, `src/util.rs` | Default browser, shortcuts, ≡ menu, helpers |
@@ -240,7 +242,7 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 
 - The Linux version has fewer features than the Windows one (see [Linux](#linux)).
 - Most Chrome extensions work; a few that need Chrome-only APIs may not load.
-- Passwords can't be imported from Chrome/Edge (they lock them for themselves) - use Suppa's backup instead.
+- Passwords are imported from the other browser's `.csv` export, not read from its files directly (Chrome and Edge lock them for themselves).
 
 ## License
 
