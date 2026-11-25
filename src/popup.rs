@@ -151,11 +151,14 @@ pub fn init(owner: HWND) {
             ..Default::default()
         };
         RegisterClassW(&wc);
+        // (A see-through window with a transparent WebView was tried: WebView2
+        // gives its smoothed edges a white fringe over dark pages. So the window
+        // is cut to shape instead, see `place`.)
         if let Ok(h) = CreateWindowExW(
             WS_EX_TOOLWINDOW,
             class,
             w!("Suppa menu"),
-            WS_POPUP | WS_CLIPCHILDREN,
+            WS_POPUP,
             0,
             0,
             10,
@@ -311,8 +314,14 @@ fn show_ex(key: &str, items: Vec<Item>, anchor: POINT, right: bool, on_pick: Pic
     if let Some(Some(c)) = with(|p| p.controller.clone()) {
         crate::webview::set_memory_low(&c, false);
         let z = app::with(|s| ui::zoom(s)).unwrap_or(1.0);
+        // The WebView's own background (white by default) in the theme's panel
+        // colour, so no light pixel can show at the cut corners.
+        let p = app::with(|s| ui::palette_color(&s.settings, "panel").0).unwrap_or(0x1f1f1f);
         unsafe {
             let _ = c.SetZoomFactor(z);
+            if let Ok(c2) = windows::core::Interface::cast::<ICoreWebView2Controller2>(&c) {
+                let _ = c2.SetDefaultBackgroundColor(COREWEBVIEW2_COLOR { A: 255, R: p as u8, G: (p >> 8) as u8, B: (p >> 16) as u8 });
+            }
         }
     }
     let (dark, accent) = theme_json();
@@ -479,6 +488,8 @@ fn place(wc: f64, hc: f64) {
         };
         SetWindowRgn(hwnd, Some(rgn), true);
         let _ = SetWindowPos(hwnd, Some(HWND_TOP), x, y, w, h, SWP_SHOWWINDOW);
+        // repaint the window background in the current theme colour
+        let _ = InvalidateRect(Some(hwnd), None, true);
         if let Some(c) = &ctrl {
             let _ = c.SetBounds(RECT { left: 0, top: 0, right: w, bottom: h });
             let _ = c.SetIsVisible(true);
@@ -595,7 +606,17 @@ unsafe extern "system" fn popup_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARA
                 }
                 LRESULT(0)
             }
-            WM_ERASEBKGND => LRESULT(1),
+            // The window itself in the theme's panel colour: at the cut corners
+            // it shows next to the WebView, and unpainted it was white / black.
+            WM_ERASEBKGND => {
+                let mut rc = RECT::default();
+                let _ = GetClientRect(hwnd, &mut rc);
+                let col = app::with(|s| ui::palette_color(&s.settings, "panel")).unwrap_or(windows::Win32::Foundation::COLORREF(0x1f1f1f));
+                let br = CreateSolidBrush(col);
+                FillRect(HDC(wp.0 as _), &rc, br);
+                let _ = DeleteObject(br.into());
+                LRESULT(1)
+            }
             _ => DefWindowProcW(hwnd, msg, wp, lp),
         }
     }

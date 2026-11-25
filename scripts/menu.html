@@ -18,8 +18,9 @@
   ::-webkit-scrollbar { width: 10px; background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--hover); border: 3px solid transparent; background-clip: padding-box; border-radius: 5px; }
   ::-webkit-scrollbar-thumb:hover { background-color: var(--muted); }
-  /* Corner pixels between the window's cut and the drawn outline: the panel
-     colour (set from the theme by the script below). */
+  /* The window is cut to the rounded shape (popup.rs). The few pixels between
+     that cut and the box's outline take the panel colour (set from the theme by
+     the script below), so nothing light ever shows in the corners. */
   html, body { margin: 0; background: var(--panel); overflow: hidden; user-select: none; }
   body { font: 400 10pt "Segoe UI", system-ui, sans-serif; color: var(--fg); }
   #m {
@@ -28,6 +29,8 @@
     border: 1px solid var(--border);
     /* 1px rounder than the window cut, so the whole outline stays inside it */
     border-radius: calc(var(--r-menu) + 1px);
+    /* no browser focus ring (white + dark) around the box: keys are handled by the script */
+    outline: none;
   }
   .head {
     display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; margin-bottom: 4px;
@@ -307,9 +310,7 @@ window.chrome.webview.addEventListener('message', (e) => {
     }
     // Squircle corners (Settings -> Corner style) are 1.6x bigger, like the bar and the window cut.
     document.body.classList.toggle('squircle', !!msg.squircle);
-    // The few pixels between the window's (hard) cut and the rounded box take
-    // the panel colour of *this* theme, so they melt into the dialog instead of
-    // showing as light dots (light theme / custom colours live on <body>).
+    // Light theme / custom colours live on <body>; the page behind the box too.
     document.documentElement.style.background = getComputedStyle(document.body).getPropertyValue('--panel').trim();
     const rad = Math.round((typeof msg.radius === 'number' ? msg.radius : 10) * (msg.squircle ? 1.6 : 1));
     document.documentElement.style.setProperty('--radius', rad + 'px');
