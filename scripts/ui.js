@@ -891,14 +891,30 @@ window.chrome.webview.addEventListener('message', (e) => {
   } else if (m.type === 'rename') {
     startRename(m.path);
   } else if (m.type === 'dl') {
-    // Download button next to ≡: shown once there are downloads this session;
-    // the ring fills with the progress of running downloads.
+    // Download button next to the address bar (≡ -> Show download button);
+    // the accent fills it clockwise with the progress of running downloads.
     const b = $('dl');
+    const wasHidden = b.hidden;
     b.hidden = !m.show;
-    b.classList.toggle('busy', m.active > 0);
-    b.style.setProperty('--p', m.active > 0 && m.p >= 0 ? m.p : (m.active > 0 ? 0.15 : 1));
+    clearTimeout(b._done);
+    if (m.active > 0) {
+      if (!b.classList.contains('busy')) {
+        // A new round: start from empty, without animating back.
+        b.classList.add('reset');
+        b.style.setProperty('--p', 0);
+        void b.offsetWidth;
+        b.classList.remove('reset');
+        b.classList.add('busy');
+      }
+      // Size unknown: a small wedge so it still shows something is running.
+      b.style.setProperty('--p', m.p >= 0 ? Math.min(1, m.p) : 0.12);
+    } else if (b.classList.contains('busy')) {
+      // Finished: fill up, then fade back to a normal button.
+      b.style.setProperty('--p', 1);
+      b._done = setTimeout(() => b.classList.remove('busy'), 900);
+    }
     b.title = m.active > 0 ? 'Downloads - ' + m.active + ' running' : 'Downloads';
-    layoutTabs();
+    if (wasHidden !== b.hidden) layoutTabs();
   } else if (m.type === 'dl_open') {
     // A download started: its popup opens under this button (or ≡).
     const b = $('dl').hidden ? $('menu') : $('dl');

@@ -18,9 +18,9 @@
   ::-webkit-scrollbar { width: 10px; background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--hover); border: 3px solid transparent; background-clip: padding-box; border-radius: 5px; }
   ::-webkit-scrollbar-thumb:hover { background-color: var(--muted); }
-  /* Corner pixels between the window's cut and the drawn outline take the outline
-     colour, so the rounded outline looks continuous all the way round. */
-  html, body { margin: 0; background: var(--border); overflow: hidden; user-select: none; }
+  /* Corner pixels between the window's cut and the drawn outline: the panel
+     colour (set from the theme by the script below). */
+  html, body { margin: 0; background: var(--panel); overflow: hidden; user-select: none; }
   body { font: 400 10pt "Segoe UI", system-ui, sans-serif; color: var(--fg); }
   #m {
     position: absolute; left: 0; top: 0; width: max-content; min-width: 230px; max-width: 460px;
@@ -62,9 +62,13 @@
     height: 32px; padding: 0 18px; border-radius: var(--r-btn); border: 1px solid var(--border);
     background: var(--hover); color: var(--fg); font: inherit; cursor: default; outline: none;
   }
-  .btn:hover, .btn.sel { filter: brightness(1.15); }
+  .btn:hover { filter: brightness(1.15); }
+  /* the main button is exactly the accent colour (like the bar), also when focused */
   .btn.hot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
-  .btn.sel { box-shadow: 0 0 0 2px var(--fg); }
+  .btn.hot:hover { filter: brightness(1.06); }
+  /* keyboard focus: a thin accent ring around the button, its colour unchanged */
+  .btn.sel { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px var(--accent); }
+  .btn.hot.sel { box-shadow: none; }
 </style>
 </head>
 <body>
@@ -303,6 +307,10 @@ window.chrome.webview.addEventListener('message', (e) => {
     }
     // Squircle corners (Settings -> Corner style) are 1.6x bigger, like the bar and the window cut.
     document.body.classList.toggle('squircle', !!msg.squircle);
+    // The few pixels between the window's (hard) cut and the rounded box take
+    // the panel colour of *this* theme, so they melt into the dialog instead of
+    // showing as light dots (light theme / custom colours live on <body>).
+    document.documentElement.style.background = getComputedStyle(document.body).getPropertyValue('--panel').trim();
     const rad = Math.round((typeof msg.radius === 'number' ? msg.radius : 10) * (msg.squircle ? 1.6 : 1));
     document.documentElement.style.setProperty('--radius', rad + 'px');
     document.documentElement.style.setProperty('--r-menu', (rad > 0 ? rad + 2 : 0) + 'px');

@@ -31,6 +31,8 @@ pub struct Settings {
     pub autofill: bool,
     /// Saved-tabs bar under the address bar.
     pub show_saved: bool,
+    /// Download button next to the address bar.
+    pub dl_button: bool,
     /// Ask on start to make Suppa the default browser.
     pub ask_default: bool,
     /// Heights (CSS px) of the tabs row, address-bar row and saved-tabs row.
@@ -257,6 +259,7 @@ impl Default for Settings {
             save_passwords: true,
             autofill: true,
             show_saved: true,
+            dl_button: true,
             ask_default: true,
             row_tabs: ROW_TABS.1,
             row_nav: ROW_NAV.1,
@@ -356,6 +359,7 @@ pub fn load() -> Settings {
             "passwords" => s.save_passwords = v != "0",
             "autofill" => s.autofill = v != "0",
             "saved_bar" => s.show_saved = v != "0",
+            "dl_button" => s.dl_button = v != "0",
             "ask_default" => s.ask_default = v != "0",
             "row_tabs" => s.row_tabs = clamp_row(v.parse().unwrap_or(ROW_TABS.1), ROW_TABS),
             "row_nav" => s.row_nav = clamp_row(v.parse().unwrap_or(ROW_NAV.1), ROW_NAV),
@@ -430,6 +434,7 @@ pub fn save(s: &Settings) {
     out.push_str(&format!("passwords={}\n", s.save_passwords as u8));
     out.push_str(&format!("autofill={}\n", s.autofill as u8));
     out.push_str(&format!("saved_bar={}\n", s.show_saved as u8));
+    out.push_str(&format!("dl_button={}\n", s.dl_button as u8));
     out.push_str(&format!("ask_default={}\n", s.ask_default as u8));
     out.push_str(&format!("row_tabs={}\nrow_nav={}\nrow_saved={}\n", s.row_tabs, s.row_nav, s.row_saved));
     out.push_str(&format!("lock_sizes={}\n", s.lock_sizes as u8));

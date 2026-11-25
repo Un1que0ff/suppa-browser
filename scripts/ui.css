@@ -146,7 +146,8 @@ body.tabs-below .gchip { margin: 3px 3px 0 0; }
   width: 40px; height: 100%; border: none; border-radius: 0; background: transparent; color: var(--fg);
   padding: 0; display: inline-flex; align-items: center; justify-content: center;
 }
-#winctl button svg { display: block; pointer-events: none; stroke-width: var(--ic-win); }
+/* small, like Windows' own buttons (the general "button svg" size is 16px) */
+#winctl button svg { display: block; width: 10px; height: 10px; pointer-events: none; stroke-width: var(--ic-win); }
 #winctl button:hover { background: var(--btn-hover); }
 #winctl #close:hover { background: #e81123; color: #fff; }
 #row2 #winctl { height: var(--ctl); margin-right: 0; }
@@ -305,17 +306,30 @@ button.nav { width: calc(var(--ctl) + 2px); height: var(--ctl); padding: 0; disp
 #menu { height: var(--ctl); padding: 0 9px; display: flex; align-items: center; justify-content: center; gap: 6px; }
 #menu .upd { display: none; }
 /* "Update ≡": changes are waiting (scripts folder or Rust code) */
-#menu.hot { background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
+/* one real 2px border (a border + inner shadow have different curves in the corners) */
+#menu.hot { background: transparent; color: var(--accent); border: 2px solid var(--accent); padding: 0 8px; font-weight: 600; }
 #menu.hot .upd, #menu.busy .upd { display: inline; }
 #menu.hot:hover { background: var(--accent); color: var(--on-accent); }
 #menu.busy { color: var(--muted); }
 
-/* Download button next to the menu: a ring around it shows the progress */
-#dl { position: relative; }
+/* Download button next to the address bar: square, with the chosen corners.
+   While something downloads the accent fills it like a clock hand sweeping
+   from 12 o'clock (--p = 0..1, animated); the icon is the on-accent colour
+   on the filled part and the normal icon colour on the rest. */
+@property --p { syntax: '<number>'; inherits: true; initial-value: 0; }
+#dl { position: relative; width: var(--ctl); --p: 0; transition: --p .5s ease-out; }
 #dl[hidden] { display: none; }
-#dl .ring {
-  position: absolute; inset: 3px; border-radius: 50%; pointer-events: none; opacity: 0;
-  background: conic-gradient(var(--accent) calc(var(--p, 0) * 360deg), transparent 0);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+#dl.reset { transition: none; }
+#dl > * { pointer-events: none; }
+#dl .fill {
+  position: absolute; inset: -1px; border-radius: inherit; opacity: 0; transition: opacity .3s ease;
+  background: conic-gradient(var(--accent) calc(var(--p) * 360deg), transparent 0);
 }
-#dl.busy .ring { opacity: 1; }
+#dl svg { position: relative; }
+/* the normal icon only where it is not filled (no light edges under the dark part) */
+#dl.busy svg:not(.on) { -webkit-mask: conic-gradient(transparent calc(var(--p) * 360deg), #000 0); }
+#dl svg.on {
+  position: absolute; left: 50%; top: 50%; margin: -8px 0 0 -8px; color: var(--on-accent); opacity: 0; transition: opacity .3s ease;
+  -webkit-mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0);
+}
+#dl.busy .fill, #dl.busy svg.on { opacity: 1; }

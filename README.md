@@ -139,7 +139,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 ### History and downloads
 - **History** (`Ctrl+H`, ≡ → History): every page opened in a normal tab, grouped by day, with search; delete single pages, the last hour or everything. The first start copies the history the engine already had. Incognito tabs are never recorded.
 - **Start page shortcuts**: the Suppa start page shows your 8 most-visited sites of the last 90 days (letters, no icons are loaded from the web); × removes one.
-- **Downloads**: no more Edge download box. When a download starts, a popup opens next to ≡ with its progress, and a download button with a progress ring stays there. Click = open / pause / resume, right-click = Show in folder, Cancel, Download again, Remove. The **Downloads page** (`Ctrl+J`) lists every download with search, Open, Show in folder, Pause / Resume and Cancel.
+- **Downloads**: no more Edge download box. When a download starts, a popup opens with its progress, and the download button next to the address bar fills with the accent colour clockwise as it downloads (turn the button off in ≡ -> Show download button). Click = open / pause / resume, right-click = Show in folder, Cancel, Download again, Remove. The **Downloads page** (`Ctrl+J`) lists every download with search, Open, Show in folder, Pause / Resume and Cancel.
 
 ### Updates
 - Once a day Suppa asks GitHub for the newest version (only the version number; turn it off in Settings → Update and files). ≡ → **Check for updates** asks right away.

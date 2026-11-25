@@ -326,10 +326,10 @@ pub fn notify() {
 
 /// The download button next to ≡: shown once there is something this session.
 pub fn sync_bar() {
-    let (show, active, got, total) = with(|s| {
+    let show = crate::app::with(|s| s.settings.dl_button).unwrap_or(true);
+    let (active, got, total) = with(|s| {
         let act: Vec<&Dl> = s.list.iter().filter(|d| d.state == "active").collect();
-        let session = s.list.iter().any(|d| d.op.is_some() || d.t > crate::util::start_unix_ms());
-        (session, act.len(), act.iter().map(|d| d.got).sum::<i64>(), act.iter().map(|d| d.total).sum::<i64>())
+        (act.len(), act.iter().map(|d| d.got).sum::<i64>(), act.iter().map(|d| d.total).sum::<i64>())
     });
     let p = if total > 0 { got as f64 / total as f64 } else { -1.0 };
     crate::ui::post(serde_json::json!({ "type": "dl", "show": show, "active": active, "p": p }).to_string());

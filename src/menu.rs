@@ -17,7 +17,7 @@ fn run(pick: Option<i64>) {
 }
 
 pub fn show_main() {
-    let Some((closed, update, building, dark, blocked, ext_count, locked, show_saved)) = app::with(|s| {
+    let Some((closed, update, building, dark, blocked, ext_count, locked, show_saved, dl_button)) = app::with(|s| {
         (
             !s.closed.is_empty(),
             s.ui.update_available,
@@ -27,6 +27,7 @@ pub fn show_main() {
             s.extensions.len(),
             s.settings.lock_sizes,
             s.settings.show_saved,
+            s.settings.dl_button,
         )
     }) else {
         return;
@@ -69,6 +70,7 @@ pub fn show_main() {
         Item::cmd(CMD_TOGGLE_THEME, if dark { "Light theme" } else { "Dark theme" }),
         Item::cmd(CMD_LOCK_SIZES, "Lock bar sizes").checked(locked),
         Item::new(SHOW_SAVED_ID, "Show saved tabs bar").checked(show_saved),
+        Item::new(SHOW_DL_ID, "Show download button").checked(dl_button),
         Item::cmd(CMD_SETTINGS, "Settings").key("Alt+S"),
         Item::cmd(CMD_CHECK_UPDATE, "Check for updates"),
         Item::sub("Backup and import", crate::import::menu_items()),
@@ -81,6 +83,12 @@ pub fn show_main() {
     popup::show("main", items, crate::ui::menu_anchor(), true, move |pick| {
         if pick == Some(SHOW_SAVED_ID) {
             crate::settings_page::set_saved_bar(!show_saved);
+        } else if pick == Some(SHOW_DL_ID) {
+            app::with(|s| {
+                s.settings.dl_button = !dl_button;
+                crate::settings::save(&s.settings);
+            });
+            crate::downloads::sync_bar();
         } else if let Some(id) = pick.filter(|&id| crate::import::run(id)) {
             let _ = id;
         } else {
@@ -90,6 +98,7 @@ pub fn show_main() {
 }
 
 const SHOW_SAVED_ID: i64 = 60_000;
+const SHOW_DL_ID: i64 = 60_001;
 
 pub fn show_adblock() {
     popup::show("adblock", adblock_items(), crate::ui::menu_anchor(), true, run);
