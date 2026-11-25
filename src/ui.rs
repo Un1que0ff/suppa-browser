@@ -226,6 +226,18 @@ fn create_host(parent: HWND) -> HWND {
     }
 }
 
+/// Keeps the window stack right: the bar's window under every page, the
+/// floating window buttons above them.
+pub fn restack() {
+    let host = HOST.with(|h| h.get());
+    if !host.is_invalid() {
+        unsafe {
+            let _ = SetWindowPos(host, Some(HWND_BOTTOM), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+    }
+    crate::winbtn::layout();
+}
+
 /// Creates the bar WebView (called once the WebView2 environment exists).
 pub fn create(env: &ICoreWebView2Environment, hwnd: HWND) {
     let host = create_host(hwnd);
