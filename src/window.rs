@@ -480,6 +480,9 @@ pub fn command(id: u16) {
         CMD_MAKE_DEFAULT => crate::default_browser::make_default(),
         CMD_BACKUP => crate::backup::backup(),
         CMD_RESTORE => crate::backup::restore(),
+        CMD_IMPORT_PASSWORDS => crate::passwords::import_file(),
+        CMD_EXPORT_PASSWORDS => crate::passwords::export_file(),
+        CMD_RESTART => restart_now(),
         CMD_IMPORT_MENU => {
             let items = crate::import::menu_items();
             crate::popup::show("import", items, ui::corner_anchor(), true, |pick| {

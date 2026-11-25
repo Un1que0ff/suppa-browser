@@ -223,3 +223,30 @@ pub fn file_age_secs(p: &Path) -> Option<u64> {
     let m = std::fs::metadata(p).ok()?.modified().ok()?;
     Some(std::time::SystemTime::now().duration_since(m).ok()?.as_secs())
 }
+
+/// Puts text on the Windows clipboard.
+pub fn set_clipboard(text: &str) -> bool {
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::System::DataExchange::*;
+    use windows::Win32::System::Memory::*;
+    let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
+    unsafe {
+        if OpenClipboard(Some(crate::app::hwnd())).is_err() {
+            return false;
+        }
+        let _ = EmptyClipboard();
+        let ok = (|| {
+            let mem = GlobalAlloc(GMEM_MOVEABLE, wide.len() * 2).ok()?;
+            let p = GlobalLock(mem) as *mut u16;
+            if p.is_null() {
+                return None;
+            }
+            std::ptr::copy_nonoverlapping(wide.as_ptr(), p, wide.len());
+            let _ = GlobalUnlock(mem);
+            SetClipboardData(13 /* CF_UNICODETEXT */, Some(HANDLE(mem.0))).ok()
+        })()
+        .is_some();
+        let _ = CloseClipboard();
+        ok
+    }
+}

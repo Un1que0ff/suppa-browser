@@ -21,7 +21,8 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 - **Saved tabs bar** with folders and drag & drop, a ☆ to save a site in one click.
 - **Your layout** - put tabs, address bar and saved tabs each where you like: top, bottom, or a column on the left/right (e.g. address bar on top, tabs and saved tabs on the left).
 - **Your look** - darker / dark / light / lighter theme, a tint over the whole interface, any accent colour (or the Windows accent), every interface colour, round or squircle corners, which tab corners are rounded, five icon styles, interface scale.
-- **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark and password import.
+- **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark import.
+- **Password manager** - see, search, copy and delete saved passwords; import them from Firefox, Chrome, Edge or Brave and export them to a `.csv` file.
 - **Hackable** - the whole interface is plain HTML/CSS/JS in a folder next to the exe; edit it and press **Update**.
 
 ---
@@ -35,10 +36,12 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 | ![Menu](docs/screenshots/menu.png) | ![Side bar](docs/screenshots/side-tabs.png) |
 | **The ≡ menu** - every menu follows the browser's theme | **Bar on the left** - vertical tabs, address and saved tabs in one column |
 | ![Saved tabs folder](docs/screenshots/saved-folder.png) | ![Settings](docs/screenshots/settings.png) |
-| **Saved tabs** - folders open as menus; drag to sort | **Settings** - look, layout, privacy, backup, update |
+| **Saved tabs** - folders open as menus; drag to sort | **Settings** - grouped in tabs on the left: look, corners, layout, privacy, passwords, backup, update |
+| ![Password manager](docs/screenshots/passwords.png) | ![Tabs on the left, red tint](docs/screenshots/layout-tint.png) |
+| **Password manager** - search, show, copy, delete; import from Firefox, Chrome, Edge or Brave and export to `.csv` | **Your layout and look** - tabs on the left, address bar on top, dark theme with a 20% red tint and squircle corners |
 
-![Pro settings - colours](docs/screenshots/settings-colors.png)
-*Pro settings: change every colour of the interface (separately for the light and dark theme).*
+![Custom colours](docs/screenshots/settings-colors.png)
+*Settings → Custom colours: change every colour of the interface (separately for the light and dark theme).*
 
 ---
 
@@ -116,16 +119,17 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - **Interface scale** 75–150 % (pages keep their own zoom), **corner roundness** 0–20 px, **corner style** round or **squircle** (smooth superellipse corners everywhere, menus included).
 - **Tab corners**: choose which of the four corners of a tab are rounded (or Auto).
 - **Icon style**: Line, Bold, Sharp, Filled or Duotone (toolbar, saved tabs, window buttons).
-- **Pro settings → Colors**: every colour of the interface, per theme.
+- **Settings → Custom colours**: every colour of the interface, per theme.
 - **Layout**: each row (tabs, address bar, saved tabs) at the **top, bottom, left or right**, or all at once; rows on the left/right share a column with vertical tabs (drag its edge to resize). Rows at the same edge follow the chosen **order**. With no row at the top the window buttons float over the top-right corner of the page.
 - Drag the thin line under a row to resize it; ≡ → *Lock bar sizes* prevents accidents.
 - The window has no Windows title bar - the tab row *is* the title bar (drag to move, double-click to maximize).
 
 ### Passwords, backup and import
-- Passwords and form data are saved and filled in (can be turned off). *Delete saved passwords* in Settings.
+- Passwords and form data are saved and filled in (can be turned off).
+- **Password manager**: Settings → Passwords lists every saved password with search, Show, Copy, Open and Delete (deleting takes effect when Suppa restarts; the engine keeps its store locked while it runs). **Export** writes them all to a `.csv` file that other browsers can import.
 - **Backup**: one `.zip` with settings, bar sizes, saved tabs, open tabs, scripts, extensions, saved passwords, form data and website logins. **Restore** applies it on the next start. (Passwords are encrypted by Windows for your account, so they restore on the same Windows account.)
 - **Import bookmarks** from Chrome, Edge, Brave, Vivaldi, Opera or Firefox (found automatically) or from an exported bookmarks `.html` file.
-- **Import passwords** from a Firefox, Chrome or Edge password export (`.csv`): ≡ → Backup and import → Import passwords from a file. In Firefox: about:logins → ⋯ → Export passwords. The passwords are encrypted for your Windows account straight away and go into Suppa's password store when it restarts; Suppa then offers to delete the export file (it holds the passwords as plain text).
+- **Import passwords** from a Firefox, Chrome, Edge or Brave password export (`.csv`): Settings → Passwords → Import, or ≡ → Backup and import → Import passwords from a file. In Brave: brave://password-manager/settings → Export passwords. In Firefox: about:logins → ⋯ → Export passwords. The passwords are encrypted for your Windows account straight away and go into Suppa's password store when it restarts; Suppa then offers to delete the export file (it holds the passwords as plain text).
 
 ### Everything else
 - Themed menus everywhere (≡, tabs, saved tabs, page right-click) and themed dialogs. Right-click a page → **Inspect element** opens the developer tools on that element.
@@ -200,7 +204,7 @@ Everything in `scripts\` next to `Suppa.exe` can be edited:
 |---|---|
 | `ui.html`, `ui.css`, `ui.js` | the toolbar: tabs, window buttons, address bar, saved tabs, colours |
 | `menu.html` | all menus and dialogs |
-| `settings.html` | the Settings tab |
+| `settings.html` | the Settings tab (groups as tabs on the left: Appearance, Corners, Layout, Custom colours, Start and search, Tabs and memory, Privacy, Passwords, Extensions, Backup and import, Update and files) |
 | `cookies.js` | which cookie buttons are clicked |
 | `webstore.js` | the Chrome Web Store "Add to Suppa" helper |
 | `newtab.html` | the optional Suppa start page |
@@ -228,7 +232,7 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 | `src/saved.rs` | Saved tabs bar, folders, star button |
 | `src/settings.rs` / `src/settings_page.rs` | settings.ini, session / the Settings tab |
 | `src/backup.rs` / `src/import.rs` | Backup & restore / bookmark import |
-| `src/passwords.rs` | Password import from a `.csv` export (written into the engine's own encrypted store) |
+| `src/passwords.rs` | Password manager: list, show, copy, delete, import and export (`.csv`), using the engine's own encrypted store |
 | `src/sleeper.rs` | Sleeping and unloading background tabs |
 | `src/scripts.rs` | The scripts folder, change detection, rebuild |
 | `src/default_browser.rs`, `src/shortcuts.rs`, `src/menu.rs`, `src/util.rs` | Default browser, shortcuts, ≡ menu, helpers |

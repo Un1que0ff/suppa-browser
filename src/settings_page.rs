@@ -33,11 +33,42 @@ pub fn on_message(wv: &ICoreWebView2, json: &str) {
                 "backup" => CMD_BACKUP,
                 "restore" => CMD_RESTORE,
                 "import" => CMD_IMPORT_MENU,
+                "import_passwords" => CMD_IMPORT_PASSWORDS,
+                "export_passwords" => CMD_EXPORT_PASSWORDS,
+                "restart" => CMD_RESTART,
                 "load_unpacked" => CMD_EXT_LOAD_UNPACKED,
                 _ => return,
             };
             // Posted, so message boxes never run inside this WebView event.
             util::post(app::hwnd(), WM_APP_COMMAND, cmd as usize, 0);
+        }
+        // Password manager: {cmd:"pw", op, realm, user}
+        "pw" => {
+            let s = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let (realm, user) = (s("realm"), s("user"));
+            let reply = match s("op").as_str() {
+                "list" => crate::passwords::list_json(),
+                "reveal" => serde_json::json!({
+                    "type": "pw_reveal", "realm": realm, "user": user,
+                    "password": crate::passwords::reveal(&realm, &user),
+                }),
+                "copy" => {
+                    let ok = crate::passwords::copy(&realm, &user);
+                    serde_json::json!({ "type": "pw_toast", "text": if ok { "Password copied" } else { "Could not copy the password" } })
+                }
+                "delete" => {
+                    crate::passwords::delete(&realm, &user);
+                    crate::passwords::list_json()
+                }
+                "undo" => {
+                    crate::passwords::undo_deletes();
+                    crate::passwords::list_json()
+                }
+                _ => return,
+            };
+            unsafe {
+                let _ = wv.PostWebMessageAsJson(&HSTRING::from(reply.to_string()));
+            }
         }
         _ => {}
     }

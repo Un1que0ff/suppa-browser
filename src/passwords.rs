@@ -316,11 +316,20 @@ fn import_path(file: PathBuf) {
 
 // ---- step 2 (next start, before the engine): write into the store ----------------------
 
-/// At startup, before the engine opens its files: put scheduled passwords in.
+/// At startup, before the engine opens its files: delete the passwords removed
+/// in Settings, then put scheduled imports in.
 pub fn apply_pending() {
+    let db = profile_dir().join("Default").join("Login Data");
+    let del = util::data_dir().join(DELETE);
+    if del.exists() {
+        match delete_logins(&db, &pending_deletes()) {
+            Ok(n) => util::log(&format!("passwords: {n} deleted")),
+            Err(e) => util::log(&format!("passwords: delete failed: {e}")),
+        }
+        let _ = std::fs::remove_file(&del);
+    }
     let pending = util::data_dir().join(PENDING);
     let Ok(text) = std::fs::read_to_string(&pending) else { return };
-    let db = profile_dir().join("Default").join("Login Data");
     let msg = match write_logins(&db, &text) {
         Ok((added, updated)) => {
             let _ = std::fs::remove_file(&pending);
@@ -439,6 +448,207 @@ fn write_logins(db: &Path, json: &str) -> Result<(usize, usize), String> {
     }
 }
 
+// ---- the saved passwords (Settings -> Passwords) ---------------------------------------
+//
+// The engine keeps its store locked while it runs, so the list is read from a
+// copy of the file (it only holds the encrypted values), and deleting is
+// scheduled like an import: done when Suppa starts again.
+
+const DELETE: &str = "passwords-delete.json";
+
+/// One saved password. `password` is None if it could not be decrypted.
+struct Saved {
+    realm: String,
+    url: String,
+    username: String,
+    password: Option<String>,
+}
+
+/// "v10" + nonce + ciphertext + tag -> the password.
+fn decrypt_password(key: &[u8], v: &[u8]) -> Option<String> {
+    if v.len() < 3 + 12 + 16 || !(v.starts_with(b"v10") || v.starts_with(b"v11")) {
+        return None;
+    }
+    let nonce: [u8; 12] = v[3..15].try_into().ok()?;
+    let (ct, tag) = v[15..].split_at(v.len() - 15 - 16);
+    let (plain, _) = aes_gcm(key, &nonce, ct, false, Some(tag)).ok()?;
+    String::from_utf8(plain).ok()
+}
+
+/// Sites + user names deleted in Settings, waiting for the next start.
+fn pending_deletes() -> Vec<(String, String)> {
+    std::fs::read_to_string(util::data_dir().join(DELETE))
+        .ok()
+        .and_then(|t| serde_json::from_str::<Vec<(String, String)>>(&t).ok())
+        .unwrap_or_default()
+}
+
+/// Every saved password (minus the ones waiting to be deleted).
+fn read_store() -> Result<Vec<Saved>, String> {
+    let db = profile_dir().join("Default").join("Login Data");
+    if !db.exists() {
+        return Ok(Vec::new());
+    }
+    let tmp = util::data_dir().join("login-data-read.tmp");
+    std::fs::copy(&db, &tmp).map_err(|e| format!("Could not read Suppa's password store: {e}"))?;
+    let result = (|| {
+        let key = engine_key()?;
+        let conn = Sqlite::load()?.open(&tmp)?;
+        let mut st = conn.prepare(
+            "SELECT signon_realm, origin_url, username_value, password_value FROM logins \
+             WHERE blacklisted_by_user=0 ORDER BY signon_realm, username_value",
+        )?;
+        let mut out = Vec::new();
+        while st.next()? {
+            out.push(Saved {
+                realm: st.col_text(0),
+                url: st.col_text(1),
+                username: st.col_text(2),
+                password: decrypt_password(&key, &st.col_blob(3)),
+            });
+        }
+        Ok(out)
+    })();
+    let _ = std::fs::remove_file(&tmp);
+    let gone = pending_deletes();
+    result.map(|v| v.into_iter().filter(|s| !gone.iter().any(|(r, u)| *r == s.realm && *u == s.username)).collect())
+}
+
+/// "https://www.site.com/" -> "site.com"
+fn site_name(realm: &str) -> String {
+    let host = realm.split("://").nth(1).unwrap_or(realm).split(['/', ':']).next().unwrap_or(realm);
+    host.strip_prefix("www.").unwrap_or(host).to_string()
+}
+
+/// The list for Settings: sites and user names, never the passwords.
+pub fn list_json() -> serde_json::Value {
+    match read_store() {
+        Ok(items) => serde_json::json!({
+            "type": "pw_list",
+            "items": items.iter().map(|s| serde_json::json!({
+                "site": site_name(&s.realm), "url": s.url, "realm": s.realm,
+                "user": s.username, "bad": s.password.is_none(),
+            })).collect::<Vec<_>>(),
+            "pending": pending_deletes().len(),
+        }),
+        Err(e) => serde_json::json!({ "type": "pw_list", "items": [], "error": e, "pending": pending_deletes().len() }),
+    }
+}
+
+fn find(realm: &str, user: &str) -> Option<String> {
+    read_store().ok()?.into_iter().find(|s| s.realm == realm && s.username == user)?.password
+}
+
+/// One password, when the eye button is clicked.
+pub fn reveal(realm: &str, user: &str) -> Option<String> {
+    find(realm, user)
+}
+
+/// Copies one password to the clipboard (it never goes through the page).
+pub fn copy(realm: &str, user: &str) -> bool {
+    find(realm, user).is_some_and(|p| util::set_clipboard(&p))
+}
+
+/// Deletes one password the next time Suppa starts.
+pub fn delete(realm: &str, user: &str) {
+    let mut list = pending_deletes();
+    if !list.iter().any(|(r, u)| r == realm && u == user) {
+        list.push((realm.to_string(), user.to_string()));
+    }
+    let _ = std::fs::write(util::data_dir().join(DELETE), serde_json::to_string(&list).unwrap_or_default());
+}
+
+/// Undo: keeps every password that was waiting to be deleted.
+pub fn undo_deletes() {
+    let _ = std::fs::remove_file(util::data_dir().join(DELETE));
+}
+
+fn delete_logins(db: &Path, list: &[(String, String)]) -> Result<usize, String> {
+    if !db.exists() || list.is_empty() {
+        return Ok(0);
+    }
+    let conn = Sqlite::load()?.open(db)?;
+    let has = |t: &str| conn.query_text(&format!("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{t}'")).map(|c| c == "1");
+    // Tables that point at a login by its id.
+    let mut children = Vec::new();
+    for (t, col) in [("logins_edge_extended", "id"), ("insecure_credentials", "parent_id"), ("password_notes", "parent_id")] {
+        if has(t)? {
+            children.push((t, col));
+        }
+    }
+    conn.exec("BEGIN IMMEDIATE")?;
+    let result = (|| {
+        let mut n = 0;
+        for (realm, user) in list {
+            for (t, col) in &children {
+                let mut st = conn.prepare(&format!(
+                    "DELETE FROM {t} WHERE {col} IN (SELECT id FROM logins WHERE signon_realm=?1 AND username_value=?2)"
+                ))?;
+                st.text(1, realm)?;
+                st.text(2, user)?;
+                st.run()?;
+            }
+            let mut st = conn.prepare("DELETE FROM logins WHERE signon_realm=?1 AND username_value=?2")?;
+            st.text(1, realm)?;
+            st.text(2, user)?;
+            st.run()?;
+            drop(st);
+            n += conn.changes() as usize;
+        }
+        Ok(n)
+    })();
+    match result {
+        Ok(n) => {
+            conn.exec("COMMIT")?;
+            Ok(n)
+        }
+        Err(e) => {
+            let _ = conn.exec("ROLLBACK");
+            Err(e)
+        }
+    }
+}
+
+/// Settings -> Passwords -> Export: every saved password to a .csv file
+/// (Chrome's format, which Firefox, Chrome, Edge, Brave and Suppa can import).
+pub fn export_file() {
+    let hwnd = crate::app::hwnd();
+    let list: Vec<Saved> = match read_store() {
+        Ok(l) => l.into_iter().filter(|s| s.password.is_some()).collect(),
+        Err(e) => {
+            util::info(hwnd, &format!("Could not export passwords\n\n{e}"));
+            return;
+        }
+    };
+    if list.is_empty() {
+        util::info(hwnd, "There are no saved passwords to export.");
+        return;
+    }
+    let n = list.len();
+    crate::popup::confirm(
+        &format!("Export {n} passwords?"),
+        "The file holds every password as plain text: anyone who opens it can read them. Keep it safe and delete it once you have imported it.",
+        "Export...",
+        "Cancel",
+        move || {
+            let Some(path) = util::save_dialog("Export passwords", "Suppa Passwords.csv", "Password file (.csv)", "*.csv") else { return };
+            let q = |s: &str| format!("\"{}\"", s.replace('"', "\"\""));
+            let mut csv = String::from("name,url,username,password,note\r\n");
+            for s in &list {
+                let url = if s.url.is_empty() { &s.realm } else { &s.url };
+                csv += &format!("{},{},{},{},\r\n", q(&site_name(&s.realm)), q(url), q(&s.username), q(s.password.as_deref().unwrap_or("")));
+            }
+            match std::fs::write(&path, csv) {
+                Ok(()) => {
+                    util::log(&format!("passwords: {n} exported"));
+                    crate::backup::show_notice("✓  Passwords exported", &format!("{n} passwords saved to {}", path.display()));
+                }
+                Err(e) => util::info(crate::app::hwnd(), &format!("Could not write the file\n\n{e}")),
+            }
+        },
+    );
+}
+
 // ---- SQLite from Windows (winsqlite3.dll) ----------------------------------------------
 
 type Db = *mut std::ffi::c_void;
@@ -457,6 +667,8 @@ struct Sqlite {
     step: unsafe extern "system" fn(Stmt) -> i32,
     finalize: unsafe extern "system" fn(Stmt) -> i32,
     column_text: unsafe extern "system" fn(Stmt, i32) -> *const u8,
+    column_blob: unsafe extern "system" fn(Stmt, i32) -> *const u8,
+    column_bytes: unsafe extern "system" fn(Stmt, i32) -> i32,
     changes: unsafe extern "system" fn(Db) -> i32,
     last_insert_rowid: unsafe extern "system" fn(Db) -> i64,
 }
@@ -491,6 +703,8 @@ impl Sqlite {
                 step: f!("sqlite3_step"),
                 finalize: f!("sqlite3_finalize"),
                 column_text: f!("sqlite3_column_text"),
+                column_blob: f!("sqlite3_column_blob"),
+                column_bytes: f!("sqlite3_column_bytes"),
                 changes: f!("sqlite3_changes"),
                 last_insert_rowid: f!("sqlite3_last_insert_rowid"),
             })
@@ -593,6 +807,25 @@ impl St<'_> {
     fn int(&mut self, i: i32, v: i64) -> Result<(), String> {
         let rc = unsafe { (self.c.s.bind_int64)(self.st, i, v) };
         self.check(rc)
+    }
+    /// Next row: true while there is one.
+    fn next(&mut self) -> Result<bool, String> {
+        match unsafe { (self.c.s.step)(self.st) } {
+            SQLITE_ROW => Ok(true),
+            SQLITE_DONE => Ok(false),
+            _ => Err(self.c.err()),
+        }
+    }
+    fn col_text(&self, i: i32) -> String {
+        let p = unsafe { (self.c.s.column_text)(self.st, i) };
+        if p.is_null() { String::new() } else { unsafe { std::ffi::CStr::from_ptr(p as *const _) }.to_string_lossy().into_owned() }
+    }
+    fn col_blob(&self, i: i32) -> Vec<u8> {
+        unsafe {
+            let p = (self.c.s.column_blob)(self.st, i);
+            let n = (self.c.s.column_bytes)(self.st, i);
+            if p.is_null() || n <= 0 { Vec::new() } else { std::slice::from_raw_parts(p, n as usize).to_vec() }
+        }
     }
     fn run(&mut self) -> Result<(), String> {
         let rc = unsafe { (self.c.s.step)(self.st) };

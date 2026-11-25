@@ -50,6 +50,9 @@ pub const CMD_LOCK_SIZES: u16 = 135;
 pub const CMD_BACKUP: u16 = 136;
 pub const CMD_RESTORE: u16 = 137;
 pub const CMD_IMPORT_MENU: u16 = 138;
+pub const CMD_IMPORT_PASSWORDS: u16 = 139;
+pub const CMD_EXPORT_PASSWORDS: u16 = 140;
+pub const CMD_RESTART: u16 = 141;
 
 pub const CMD_NEW_TAB: u16 = 100;
 pub const CMD_CLOSE_TAB: u16 = 101;

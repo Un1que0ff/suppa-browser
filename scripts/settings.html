@@ -19,8 +19,50 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 10.5pt "Segoe UI", system-ui, sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 28px 24px 60px; }
+  /* Tabs on the left, the chosen group on the right */
+  body { display: flex; min-height: 100vh; }
+  nav {
+    position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto;
+    flex: 0 0 220px; padding: 22px 12px; border-right: 1px solid var(--border); background: var(--panel);
+  }
+  .nav-title { font-size: 20px; font-weight: 600; padding: 0 12px 16px; }
+  #nav-list { display: flex; flex-direction: column; gap: 2px; }
+  #nav-list button {
+    height: 36px; text-align: left; background: transparent; border-color: transparent; color: var(--muted);
+    padding: 0 12px; font-weight: 500;
+  }
+  #nav-list button:hover { background: var(--btn); color: var(--fg); }
+  #nav-list button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  main { flex: 1 1 auto; min-width: 0; max-width: 820px; padding: 26px 28px 60px; }
+  .page { display: none; }
+  .page.on { display: block; }
   h1 { font-size: 22px; font-weight: 600; margin: 0 0 18px; }
+  /* Narrow window: tabs become a row on top */
+  @media (max-width: 640px) {
+    body { display: block; }
+    nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 12px; }
+    .nav-title { display: none; }
+    #nav-list { flex-direction: row; flex-wrap: wrap; }
+    #nav-list button { height: 30px; }
+    main { padding: 18px 14px 40px; }
+  }
+  /* Password manager */
+  .pw-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); min-height: 48px; }
+  .pw-site { flex: 1 1 40%; min-width: 0; }
+  .pw-site b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pw-site small { display: block; color: var(--muted); font-size: 9pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pw-pass { flex: 1 1 30%; min-width: 0; font: 10pt Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+  .pw-pass.hidden { letter-spacing: 2px; color: var(--muted); }
+  .pw-row .reset { flex: 0 0 auto; }
+  .pw-empty { padding: 14px 0; color: var(--muted); border-top: 1px solid var(--border); }
+  .pw-pending { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px 12px; border: 2px solid var(--accent); border-radius: var(--r-btn); }
+  .pw-pending[hidden] { display: none; }
+  .pw-pending span { flex: 1; }
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 16px;
+    background: var(--fg); color: var(--bg); border-radius: var(--r-btn); font-weight: 600; pointer-events: none;
+  }
+  #toast[hidden] { display: none; }
   section { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-box); padding: 6px 18px; margin-bottom: 16px; }
   h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 4px; }
   .row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--border); min-height: 48px; }
@@ -97,15 +139,6 @@
   }
   input[type=range]:hover::-webkit-slider-thumb { filter: brightness(1.15); }
   .radius-preview { width: 46px; height: 26px; border: 2px solid var(--accent); border-radius: var(--radius); }
-  /* Pro settings */
-  details.pro { margin-bottom: 16px; }
-  details.pro > summary {
-    cursor: pointer; list-style: none; padding: 12px 18px; border: 1px solid var(--border); border-radius: var(--r-box);
-    background: var(--panel); font-weight: 600; user-select: none;
-  }
-  details.pro > summary::before { content: "▸  "; color: var(--accent); }
-  details.pro[open] > summary { margin-bottom: 12px; }
-  details.pro[open] > summary::before { content: "▾  "; }
   .swatch.win { position: relative; }
   /* Windows logo (4 squares), drawn so it sits exactly in the middle */
   .swatch.win::after {
@@ -118,234 +151,322 @@
 </style>
 </head>
 <body>
+<nav id="nav">
+  <div class="nav-title">Settings</div>
+  <div id="nav-list"></div>
+</nav>
 <main>
-  <h1>Settings</h1>
 
-  <section>
-    <h2>Appearance</h2>
-    <div class="row">
-      <div class="label">Theme<small>Darker = black background, Lighter = white</small></div>
-      <div class="seg" id="theme">
-        <button data-v="darker">Darker</button>
-        <button data-v="dark">Dark</button>
-        <button data-v="light">Light</button>
-        <button data-v="lighter">Lighter</button>
-      </div>
-    </div>
-    <div class="row" data-win>
-      <div class="label">Tint<small>Colours the whole interface, e.g. dark theme with 20% red</small></div>
-      <input type="color" id="tint" title="Tint colour">
-      <input type="range" id="tint_amount" min="0" max="60" step="1">
-      <span id="tint_amount-val" class="muted" style="width:38px;text-align:right"></span>
-    </div>
-    <div class="row">
-      <div class="label">Show saved tabs bar<small>Under the address bar; right-click a tab and choose "Save" to add it</small></div>
-      <label class="sw"><input type="checkbox" id="saved_bar"><span></span></label>
-    </div>
-    <div class="row">
-      <div class="label">Accent colour<small>Colour of the selected tab, buttons and highlights</small></div>
-      <div class="swatches" id="swatches"></div>
-    </div>
-    <div class="row">
-      <div class="label">Text on accent colour<small>Text and icons on the selected tab, main buttons and switch knobs</small></div>
-      <div id="on-accent" style="display:flex;gap:6px">
-        <button data-v="auto">Auto</button>
-        <button data-v="black">Black</button>
-        <button data-v="white">White</button>
-      </div>
-    </div>
-    <div class="row">
-      <div class="label">Interface scale<small>Size of tabs, address bar, saved tabs, menus and dialogs. Web pages keep their own zoom (Ctrl + / -)</small></div>
-      <input type="range" id="ui_scale" min="75" max="150" step="5">
-      <span id="ui_scale-val" class="muted" style="width:44px;text-align:right"></span>
-      <button class="reset" id="ui_scale-reset" title="Back to 100%">100%</button>
-    </div>
-    <div class="row">
-      <div class="label">Corner roundness<small>Tabs, buttons, address bar, menus and dialogs. 0 = square corners</small></div>
-      <div class="radius-preview" id="radius-preview"></div>
-      <input type="range" id="radius" min="0" max="20" step="1">
-      <span id="radius-val" class="muted" style="width:38px;text-align:right"></span>
-    </div>
-    <div class="row">
-      <div class="label">Corner style<small>Squircle = smooth, Apple-like corners (superellipse) everywhere</small></div>
-      <div class="seg" id="corner_shape">
-        <button data-v="round">Round</button>
-        <button data-v="squircle">Squircle</button>
-      </div>
-    </div>
-    <div class="row">
-      <div class="label">Tab corners<small>Click the corners of the tab that should be rounded. Auto = the ones away from the page</small></div>
-      <div class="tabshape" id="tab-corners">
-        <button data-i="0" title="Top left"></button><button data-i="1" title="Top right"></button>
-        <button data-i="3" title="Bottom left"></button><button data-i="2" title="Bottom right"></button>
-        <div class="tabprev" id="tab-prev"></div>
-      </div>
-      <button class="reset" id="tab-corners-auto">Auto</button>
-    </div>
-    <div class="row">
-      <div class="label">Icon style<small>Toolbar, saved tabs and window buttons</small></div>
-      <div class="seg" id="icon_pack">
-        <button data-v="line" title="Line">Line</button>
-        <button data-v="bold" title="Bold">Bold</button>
-        <button data-v="sharp" title="Sharp">Sharp</button>
-        <button data-v="filled" title="Filled">Filled</button>
-        <button data-v="duotone" title="Duotone">Duotone</button>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <h2>Default browser</h2>
-    <div class="row">
-      <div class="label" id="default-label">Default browser<small id="default-note"></small></div>
-      <button class="primary" id="default-btn" data-action="make_default">Make Suppa the default</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>Layout</h2>
-    <div class="row">
-      <div class="label">Everything at<small>Puts tabs, address bar and saved tabs at one place. Below you can place each of them on its own</small></div>
-      <div id="bar-pos" style="display:flex;gap:6px">
-        <button data-v="top">Top</button>
-        <button data-v="bottom">Bottom</button>
-        <button data-v="left">Left</button>
-        <button data-v="right">Right</button>
-      </div>
-    </div>
-    <div id="row-pos"></div>
-    <div class="row">
-      <div class="label">Order of the rows<small>Use the arrows to move a row up or down</small><div id="row-order" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div></div>
-      <button class="reset" id="order-reset">Default order</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>Start page and search</h2>
-    <div class="row">
-      <div class="label">New tabs and Home button open</div>
-      <select id="home-kind">
-        <option value="https://www.google.com/">Google</option>
-        <option value="https://suppa.newtab/">Suppa start page</option>
-        <option value="custom">Custom address...</option>
-      </select>
-      <input type="text" id="home-custom" placeholder="https://..." spellcheck="false">
-    </div>
-    <div class="row">
-      <div class="label">Search engine (address bar)</div>
-      <select id="search"></select>
-    </div>
-  </section>
-
-  <section>
-    <h2>Privacy</h2>
-    <div class="row">
-      <div class="label">Block ads and trackers</div>
-      <label class="sw"><input type="checkbox" id="adblock"><span></span></label>
-    </div>
-    <div class="row">
-      <div class="label">Accept cookie popups automatically<small>Clicks "Accept all" on cookie banners (edit scripts\cookies.js to change how)</small></div>
-      <label class="sw"><input type="checkbox" id="cookies"><span></span></label>
-    </div>
-    <div class="row" data-win>
-      <div class="label">Save passwords<small>Offers to save passwords and fills them in next time</small></div>
-      <label class="sw"><input type="checkbox" id="passwords"><span></span></label>
-    </div>
-    <div class="row" data-win>
-      <div class="label">Fill in forms (names, addresses)</div>
-      <label class="sw"><input type="checkbox" id="autofill"><span></span></label>
-    </div>
-    <div class="row" id="allow-row">
-      <div class="label">Ads allowed on these sites<div class="chips" id="allow"></div></div>
-    </div>
-    <div class="row">
-      <div class="label">Incognito tab<small>Nothing is saved: no history, cookies or passwords (Ctrl+Shift+N)</small></div>
-      <button data-action="incognito">Open incognito tab</button>
-    </div>
-    <div class="row" data-win>
-      <div class="label">Saved passwords</div>
-      <button class="danger" data-action="clear_passwords">Delete saved passwords</button>
-    </div>
-    <div class="row">
-      <div class="label">Browsing data<small>History, cookies, cache, passwords, site data</small></div>
-      <button class="danger" data-action="clear_data">Clear browsing data</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>Tabs and memory</h2>
-    <div class="row">
-      <div class="label">Reopen tabs from last time</div>
-      <label class="sw"><input type="checkbox" id="restore"><span></span></label>
-    </div>
-    <div class="row" data-win>
-      <div class="label">Freeze background tabs after (minutes)<small>Frozen tabs use no CPU</small></div>
-      <input type="number" id="sleep" min="1" max="600">
-    </div>
-    <div class="row">
-      <div class="label">Unload background tabs after (minutes)<small>Frees their memory; 0 = never</small></div>
-      <input type="number" id="discard" min="0" max="1440">
-    </div>
-  </section>
-
-  <section data-win>
-    <h2>Extensions</h2>
-    <div class="row">
-      <div class="label"><span id="ext-list" class="muted">No extensions</span></div>
-      <button data-action="store">Chrome Web Store</button>
-      <button data-action="load_unpacked">Load folder...</button>
-    </div>
-  </section>
-
-  <section data-win>
-    <h2>Backup and import</h2>
-    <div class="row">
-      <div class="label">Backup<small>Settings, saved tabs, open tabs, bar sizes, scripts, extensions, saved passwords and form data in one .zip. Passwords can be restored on this Windows account.</small></div>
-      <button class="primary" data-action="backup">Back up...</button>
-      <button data-action="restore">Restore...</button>
-    </div>
-    <div class="row">
-      <div class="label">Import bookmarks<small>From Chrome, Edge, Brave, Vivaldi, Opera or Firefox on this PC, or from an exported .html file. They go to the saved tabs bar.</small></div>
-      <button data-action="import">Import...</button>
-    </div>
-  </section>
-
-  <details class="pro" id="pro">
-    <summary>Pro settings</summary>
+  <!-- Each .page is one tab on the left. -->
+  <div class="page" id="p-appearance" data-title="Appearance">
     <section>
-      <h2>Colors <span class="muted" id="colors-theme" style="text-transform:none;letter-spacing:0"></span></h2>
+      <h2>Theme</h2>
+      <div class="row">
+        <div class="label">Theme<small>Darker = black background, Lighter = white</small></div>
+        <div class="seg" id="theme">
+          <button data-v="darker">Darker</button>
+          <button data-v="dark">Dark</button>
+          <button data-v="light">Light</button>
+          <button data-v="lighter">Lighter</button>
+        </div>
+      </div>
+      <div class="row" data-win>
+        <div class="label">Tint<small>Colours the whole interface, e.g. dark theme with 20% red</small></div>
+        <input type="color" id="tint" title="Tint colour">
+        <input type="range" id="tint_amount" min="0" max="60" step="1">
+        <span id="tint_amount-val" class="muted" style="width:38px;text-align:right"></span>
+      </div>
+    </section>
+    <section>
+      <h2>Accent</h2>
+      <div class="row">
+        <div class="label">Accent colour<small>Colour of the selected tab, buttons and highlights</small></div>
+        <div class="swatches" id="swatches"></div>
+      </div>
+      <div class="row">
+        <div class="label">Text on accent colour<small>Text and icons on the selected tab, main buttons and switch knobs</small></div>
+        <div id="on-accent" style="display:flex;gap:6px">
+          <button data-v="auto">Auto</button>
+          <button data-v="black">Black</button>
+          <button data-v="white">White</button>
+        </div>
+      </div>
+    </section>
+    <section>
+      <h2>Icons and size</h2>
+      <div class="row">
+        <div class="label">Icon style<small>Toolbar, saved tabs and window buttons</small></div>
+        <div class="seg" id="icon_pack">
+          <button data-v="line" title="Line">Line</button>
+          <button data-v="bold" title="Bold">Bold</button>
+          <button data-v="sharp" title="Sharp">Sharp</button>
+          <button data-v="filled" title="Filled">Filled</button>
+          <button data-v="duotone" title="Duotone">Duotone</button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="label">Interface scale<small>Size of tabs, address bar, saved tabs, menus and dialogs. Web pages keep their own zoom (Ctrl + / -)</small></div>
+        <input type="range" id="ui_scale" min="75" max="150" step="5">
+        <span id="ui_scale-val" class="muted" style="width:44px;text-align:right"></span>
+        <button class="reset" id="ui_scale-reset" title="Back to 100%">100%</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-corners" data-title="Corners">
+    <section>
+      <h2>Shape</h2>
+      <div class="row">
+        <div class="label">Corner roundness<small>Tabs, buttons, address bar, menus and dialogs. 0 = square corners</small></div>
+        <div class="radius-preview" id="radius-preview"></div>
+        <input type="range" id="radius" min="0" max="20" step="1">
+        <span id="radius-val" class="muted" style="width:38px;text-align:right"></span>
+      </div>
+      <div class="row">
+        <div class="label">Corner style<small>Squircle = smooth, Apple-like corners (superellipse) everywhere</small></div>
+        <div class="seg" id="corner_shape">
+          <button data-v="round">Round</button>
+          <button data-v="squircle">Squircle</button>
+        </div>
+      </div>
+    </section>
+    <section>
+      <h2>Tabs</h2>
+      <div class="row">
+        <div class="label">Tab corners<small>Click the corners of the tab that should be rounded. Auto = the ones away from the page</small></div>
+        <div class="tabshape" id="tab-corners">
+          <button data-i="0" title="Top left"></button><button data-i="1" title="Top right"></button>
+          <button data-i="3" title="Bottom left"></button><button data-i="2" title="Bottom right"></button>
+          <div class="tabprev" id="tab-prev"></div>
+        </div>
+        <button class="reset" id="tab-corners-auto">Auto</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-layout" data-title="Layout">
+    <section>
+      <h2>Position</h2>
+      <div class="row">
+        <div class="label">Everything at<small>Puts tabs, address bar and saved tabs at one place. Below you can place each of them on its own</small></div>
+        <div id="bar-pos" style="display:flex;gap:6px">
+          <button data-v="top">Top</button>
+          <button data-v="bottom">Bottom</button>
+          <button data-v="left">Left</button>
+          <button data-v="right">Right</button>
+        </div>
+      </div>
+      <div id="row-pos"></div>
+    </section>
+    <section>
+      <h2>Rows</h2>
+      <div class="row">
+        <div class="label">Show saved tabs bar<small>Right-click a tab and choose "Save" to add it</small></div>
+        <label class="sw"><input type="checkbox" id="saved_bar"><span></span></label>
+      </div>
+      <div class="row">
+        <div class="label">Order of the rows<small>Use the arrows to move a row up or down</small><div id="row-order" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div></div>
+        <button class="reset" id="order-reset">Default order</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-colors" data-title="Custom colours">
+    <section>
+      <h2>Colours <span class="muted" id="colors-theme" style="text-transform:none;letter-spacing:0"></span></h2>
       <div id="color-list"></div>
       <div class="row">
-        <div class="label">Reset all colours of this theme<small>Light and dark theme keep their own colours. The accent colour is above, under Appearance.</small></div>
+        <div class="label">Reset all colours of this theme<small>Light and dark theme keep their own colours. The accent colour is under Appearance.</small></div>
         <button class="danger" id="colors-reset">Reset all</button>
       </div>
     </section>
-  </details>
+  </div>
 
-  <section>
-    <h2>Update and files</h2>
-    <div class="row">
-      <div class="label">Update<small>Restarts Suppa and loads changes from the scripts folder; rebuilds Suppa.exe if the Rust code changed</small></div>
-      <button class="primary" data-action="update">Update now</button>
-    </div>
-    <div class="row">
-      <div class="label">Scripts folder<small><code id="scripts-path"></code></small></div>
-      <button data-action="open_scripts">Open</button>
-    </div>
-    <div class="row">
-      <div class="label">Settings and data folder<small><code id="data-path"></code></small></div>
-      <button data-action="open_data">Open</button>
-    </div>
-    <div class="row">
-      <div class="label">Ad-block filter lists</div>
-      <button data-action="update_lists">Update now</button>
-      <button data-action="log">Open log</button>
-    </div>
-    <div class="row">
-      <div class="label muted" id="about"></div>
-    </div>
-  </section>
+  <div class="page" id="p-start" data-title="Start and search">
+    <section>
+      <h2>Start page</h2>
+      <div class="row">
+        <div class="label">New tabs and Home button open</div>
+        <select id="home-kind">
+          <option value="https://www.google.com/">Google</option>
+          <option value="https://suppa.newtab/">Suppa start page</option>
+          <option value="custom">Custom address...</option>
+        </select>
+        <input type="text" id="home-custom" placeholder="https://..." spellcheck="false">
+      </div>
+      <div class="row">
+        <div class="label">Search engine (address bar)</div>
+        <select id="search"></select>
+      </div>
+    </section>
+    <section>
+      <h2>Default browser</h2>
+      <div class="row">
+        <div class="label" id="default-label">Default browser<small id="default-note"></small></div>
+        <button class="primary" id="default-btn" data-action="make_default">Make Suppa the default</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-tabs" data-title="Tabs and memory">
+    <section>
+      <h2>Tabs</h2>
+      <div class="row">
+        <div class="label">Reopen tabs from last time</div>
+        <label class="sw"><input type="checkbox" id="restore"><span></span></label>
+      </div>
+    </section>
+    <section>
+      <h2>Memory</h2>
+      <div class="row" data-win>
+        <div class="label">Freeze background tabs after (minutes)<small>Frozen tabs use no CPU</small></div>
+        <input type="number" id="sleep" min="1" max="600">
+      </div>
+      <div class="row">
+        <div class="label">Unload background tabs after (minutes)<small>Frees their memory; 0 = never</small></div>
+        <input type="number" id="discard" min="0" max="1440">
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-privacy" data-title="Privacy">
+    <section>
+      <h2>Ads and cookies</h2>
+      <div class="row">
+        <div class="label">Block ads and trackers</div>
+        <label class="sw"><input type="checkbox" id="adblock"><span></span></label>
+      </div>
+      <div class="row" id="allow-row">
+        <div class="label">Ads allowed on these sites<div class="chips" id="allow"></div></div>
+      </div>
+      <div class="row">
+        <div class="label">Accept cookie popups automatically<small>Clicks "Accept all" on cookie banners (edit scripts\cookies.js to change how)</small></div>
+        <label class="sw"><input type="checkbox" id="cookies"><span></span></label>
+      </div>
+    </section>
+    <section>
+      <h2>Forms</h2>
+      <div class="row" data-win>
+        <div class="label">Fill in forms (names, addresses)</div>
+        <label class="sw"><input type="checkbox" id="autofill"><span></span></label>
+      </div>
+    </section>
+    <section>
+      <h2>Private browsing</h2>
+      <div class="row">
+        <div class="label">Incognito tab<small>Nothing is saved: no history, cookies or passwords (Ctrl+Shift+N)</small></div>
+        <button data-action="incognito">Open incognito tab</button>
+      </div>
+      <div class="row">
+        <div class="label">Browsing data<small>History, cookies, cache, passwords, site data</small></div>
+        <button class="danger" data-action="clear_data">Clear browsing data</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-passwords" data-title="Passwords" data-win>
+    <section>
+      <h2>Saving</h2>
+      <div class="row">
+        <div class="label">Save passwords<small>Offers to save passwords and fills them in next time</small></div>
+        <label class="sw"><input type="checkbox" id="passwords"><span></span></label>
+      </div>
+    </section>
+    <section>
+      <h2>Saved passwords <span class="muted" id="pw-count" style="text-transform:none;letter-spacing:0"></span></h2>
+      <div class="pw-pending" id="pw-pending" hidden>
+        <span id="pw-pending-text"></span>
+        <button class="reset" id="pw-undo">Undo</button>
+        <button class="reset primary" data-action="restart">Restart now</button>
+      </div>
+      <div class="row" style="border-top:none">
+        <input type="text" id="pw-search" placeholder="Search sites and user names" spellcheck="false" style="flex:1">
+      </div>
+      <div id="pw-list"></div>
+    </section>
+    <section>
+      <h2>Move passwords</h2>
+      <div class="row">
+        <div class="label">Import<small>A .csv export from Firefox, Chrome, Edge, Brave, Opera or Vivaldi</small></div>
+        <button data-action="import_passwords">Import...</button>
+      </div>
+      <div class="row">
+        <div class="label">Export<small>All saved passwords to a .csv file (plain text) that other browsers can import</small></div>
+        <button data-action="export_passwords">Export...</button>
+      </div>
+      <div class="row">
+        <div class="label">Delete all saved passwords<small>Cannot be undone</small></div>
+        <button class="danger" data-action="clear_passwords">Delete all</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-extensions" data-title="Extensions" data-win>
+    <section>
+      <h2>Extensions</h2>
+      <div class="row">
+        <div class="label"><span id="ext-list" class="muted">No extensions</span></div>
+        <button data-action="store">Chrome Web Store</button>
+        <button data-action="load_unpacked">Load folder...</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-backup" data-title="Backup and import" data-win>
+    <section>
+      <h2>Backup</h2>
+      <div class="row">
+        <div class="label">Backup<small>Settings, saved tabs, open tabs, bar sizes, scripts, extensions, saved passwords and form data in one .zip. Passwords can be restored on this Windows account.</small></div>
+        <button class="primary" data-action="backup">Back up...</button>
+        <button data-action="restore">Restore...</button>
+      </div>
+    </section>
+    <section>
+      <h2>Import from other browsers</h2>
+      <div class="row">
+        <div class="label">Import bookmarks<small>From Chrome, Edge, Brave, Vivaldi, Opera or Firefox on this PC, or from an exported .html file. They go to the saved tabs bar.</small></div>
+        <button data-action="import">Import...</button>
+      </div>
+      <div class="row">
+        <div class="label">Import passwords<small>A .csv export from Firefox, Chrome, Edge, Brave, Opera or Vivaldi</small></div>
+        <button data-action="import_passwords">Import...</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-about" data-title="Update and files">
+    <section>
+      <h2>Update</h2>
+      <div class="row">
+        <div class="label">Update<small>Restarts Suppa and loads changes from the scripts folder; rebuilds Suppa.exe if the Rust code changed</small></div>
+        <button class="primary" data-action="update">Update now</button>
+      </div>
+      <div class="row">
+        <div class="label">Ad-block filter lists</div>
+        <button data-action="update_lists">Update now</button>
+        <button data-action="log">Open log</button>
+      </div>
+    </section>
+    <section>
+      <h2>Folders</h2>
+      <div class="row">
+        <div class="label">Scripts folder<small><code id="scripts-path"></code></small></div>
+        <button data-action="open_scripts">Open</button>
+      </div>
+      <div class="row">
+        <div class="label">Settings and data folder<small><code id="data-path"></code></small></div>
+        <button data-action="open_data">Open</button>
+      </div>
+    </section>
+    <section>
+      <h2>About</h2>
+      <div class="row">
+        <div class="label muted" id="about"></div>
+      </div>
+    </section>
+  </div>
 </main>
+<div id="toast" hidden></div>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
@@ -635,8 +756,114 @@ function setRadius(v, send) {
 }
 $('radius').addEventListener('input', () => setRadius(Number($('radius').value), true));
 
+// ---- Tabs on the left: one per .page ----
+const PAGES = [...document.querySelectorAll('.page')];
+let page = '';
+for (const p of PAGES) {
+  const h = document.createElement('h1');
+  h.textContent = p.dataset.title;
+  p.prepend(h);
+  const b = document.createElement('button');
+  b.textContent = p.dataset.title;
+  b.dataset.page = p.id;
+  if (p.hasAttribute('data-win')) b.setAttribute('data-win', '');
+  b.addEventListener('click', () => showPage(p.id));
+  $('nav-list').appendChild(b);
+}
+function showPage(id) {
+  const p = $(id);
+  if (!p || (S && S.platform === 'linux' && p.hasAttribute('data-win'))) id = PAGES[0].id;
+  if (page === 'p-passwords' && id !== page) pwShown = {};   // shown passwords hide again
+  page = id;
+  for (const x of PAGES) x.classList.toggle('on', x.id === id);
+  document.querySelectorAll('#nav-list button').forEach((b) => b.classList.toggle('on', b.dataset.page === id));
+  try { localStorage.setItem('settings-page', id); } catch (e) {}
+  if (history.replaceState) history.replaceState(null, '', '#' + id.slice(2));
+  window.scrollTo(0, 0);
+  if (id === 'p-passwords') pwRequest('list');
+}
+showPage(location.hash ? 'p-' + location.hash.slice(1) : (localStorage.getItem('settings-page') || PAGES[0].id));
+
+// ---- Password manager ----
+// The list never holds passwords; one is fetched only when its Show button is
+// clicked, and Copy goes straight from Suppa to the clipboard.
+let PW = null;
+let pwShown = {};
+const pwKey = (it) => it.realm + '\n' + it.user;
+function pwRequest(op, it) { post({ cmd: 'pw', op, realm: it ? it.realm : '', user: it ? it.user : '' }); }
+function toast(text) {
+  const t = $('toast');
+  t.textContent = text;
+  t.hidden = false;
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => { t.hidden = true; }, 1600);
+}
+function renderPw() {
+  const box = $('pw-list');
+  box.textContent = '';
+  if (!PW) return;
+  const q = $('pw-search').value.trim().toLowerCase();
+  const items = PW.items.filter((it) => !q || it.site.toLowerCase().includes(q) || it.user.toLowerCase().includes(q) || it.url.toLowerCase().includes(q));
+  $('pw-count').textContent = PW.items.length ? '- ' + PW.items.length : '';
+  $('pw-pending').hidden = !PW.pending;
+  $('pw-pending-text').textContent = PW.pending + (PW.pending === 1 ? ' password is' : ' passwords are') + ' deleted when Suppa restarts.';
+  if (PW.error || !items.length) {
+    const e = document.createElement('div');
+    e.className = 'pw-empty';
+    e.textContent = PW.error || (q ? 'Nothing found.' : 'No saved passwords yet. Sign in on a website and choose Save, or import them below.');
+    box.appendChild(e);
+    return;
+  }
+  for (const it of items) {
+    const row = document.createElement('div');
+    row.className = 'pw-row';
+    const site = document.createElement('div');
+    site.className = 'pw-site';
+    const b = document.createElement('b');
+    b.textContent = it.site;
+    b.title = it.url;
+    const u = document.createElement('small');
+    u.textContent = it.user || '(no user name)';
+    site.append(b, u);
+    const pass = document.createElement('div');
+    const shown = pwShown[pwKey(it)];
+    pass.className = 'pw-pass' + (shown == null ? ' hidden' : '');
+    pass.textContent = it.bad ? 'cannot be read' : shown != null ? shown : '••••••••';
+    const btn = (text, title, fn, cls) => {
+      const x = document.createElement('button');
+      x.className = 'reset' + (cls ? ' ' + cls : '');
+      x.textContent = text;
+      x.title = title;
+      x.onclick = fn;
+      return x;
+    };
+    const show = btn(shown != null ? 'Hide' : 'Show', 'Show the password', () => {
+      if (shown != null) { delete pwShown[pwKey(it)]; renderPw(); } else pwRequest('reveal', it);
+    });
+    const copy = btn('Copy', 'Copy the password', () => pwRequest('copy', it));
+    show.disabled = copy.disabled = !!it.bad;
+    const open = btn('Open', 'Open the website in a new tab', () => window.open(it.url || it.realm, '_blank'));
+    const del = btn('Delete', 'Delete this password', () => pwRequest('delete', it), 'danger');
+    row.append(site, pass, show, copy, open, del);
+    box.appendChild(row);
+  }
+}
+$('pw-search').addEventListener('input', renderPw);
+$('pw-undo').addEventListener('click', () => pwRequest('undo'));
+// Back from an import, export or "Delete all" dialog: fresh list.
+window.addEventListener('focus', () => { if (page === 'p-passwords') pwRequest('list'); });
+
 window.chrome.webview.addEventListener('message', (e) => {
-  if (e.data && e.data.type === 'settings') { S = e.data; render(); }
+  const m = e.data;
+  if (!m) return;
+  if (m.type === 'settings') { S = m; render(); if (S.platform === 'linux') showPage(page); }
+  else if (m.type === 'pw_list') { PW = m; renderPw(); }
+  else if (m.type === 'pw_reveal') {
+    if (m.password != null) pwShown[m.realm + '\n' + m.user] = m.password;
+    else toast('Could not read the password');
+    renderPw();
+  }
+  else if (m.type === 'pw_toast') toast(m.text);
 });
 
 for (const k of ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar']) {
@@ -652,7 +879,11 @@ $('home-kind').addEventListener('change', () => {
 $('home-custom').addEventListener('change', () => { if ($('home-custom').value.trim()) set('home', $('home-custom').value); });
 document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => post({ cmd: 'action', name: b.dataset.action })));
 // Fresh values whenever the tab is shown again (theme may have changed from the menu).
-document.addEventListener('visibilitychange', () => { if (!document.hidden) post({ cmd: 'get' }); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { pwShown = {}; renderPw(); return; }
+  post({ cmd: 'get' });
+  if (page === 'p-passwords') pwRequest('list');
+});
 post({ cmd: 'get' });
 </script>
 </body>

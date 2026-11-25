@@ -285,7 +285,8 @@ pub fn menu_items() -> Vec<Item> {
     }
     items.push(Item::new(IMPORT_FILE, "Import bookmarks from a file (.html)..."));
     items.push(Item::sep());
-    items.push(Item::new(IMPORT_PASSWORDS, "Import passwords from a file (Firefox, Chrome, Edge .csv)..."));
+    items.push(Item::new(IMPORT_PASSWORDS, "Import passwords from a file (Firefox, Chrome, Edge, Brave .csv)..."));
+    items.push(Item::new(EXPORT_PASSWORDS, "Export passwords to a file (.csv)..."));
     items
 }
 
@@ -293,6 +294,7 @@ pub const BACKUP: i64 = 70_000;
 pub const RESTORE: i64 = 70_001;
 pub const IMPORT_FILE: i64 = 70_002;
 pub const IMPORT_PASSWORDS: i64 = 70_003;
+pub const EXPORT_PASSWORDS: i64 = 70_004;
 pub const IMPORT_BASE: i64 = 70_100;
 
 /// Runs a choice from `menu_items`. Returns false if the id isn't ours.
@@ -301,6 +303,7 @@ pub fn run(id: i64) -> bool {
         BACKUP => crate::backup::backup(),
         RESTORE => crate::backup::restore(),
         IMPORT_PASSWORDS => crate::passwords::import_file(),
+        EXPORT_PASSWORDS => crate::passwords::export_file(),
         IMPORT_FILE => {
             if let Some(f) = util::open_dialog("Import bookmarks", "Bookmarks file", "*.html;*.htm") {
                 let text = std::fs::read_to_string(&f).unwrap_or_default();
