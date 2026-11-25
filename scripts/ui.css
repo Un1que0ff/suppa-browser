@@ -203,8 +203,8 @@ body.inc #inc-badge { display: inline-block; }
 body.saved #row3 { display: flex; }
 #saved { display: flex; gap: 2px; align-items: center; min-width: 0; flex: 1 1 auto; height: 100%; overflow: hidden; }
 .saved-item {
-  display: flex; align-items: center; gap: 6px; height: calc(var(--row3) - 4px); padding: 0 10px; border-radius: var(--r-sm);
-  max-width: 190px; flex: 0 0 auto; font-weight: 400; color: var(--fg); cursor: default;
+  display: flex; align-items: center; gap: 4px; height: calc(var(--row3) - 4px); padding: 0 6px; border-radius: var(--r-sm);
+  max-width: 150px; flex: 0 0 auto; font-weight: 400; color: var(--fg); cursor: default;
 }
 .saved-item { transition: transform .18s ease, background .12s ease; }
 .saved-item:hover { background: var(--btn-hover); }

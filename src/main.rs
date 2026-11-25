@@ -45,6 +45,12 @@ mod window;
 fn main() {
     util::mark_start();
     unsafe {
+        // Sharp on every monitor scale (4K at 150% etc.). The manifest asks for
+        // the same; saying it in code too covers cases where Windows ignores it.
+        use windows::Win32::UI::HiDpi::*;
+        if SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2).is_err() {
+            let _ = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+        }
         let _ = windows::Win32::System::Com::CoInitializeEx(
             None,
             windows::Win32::System::Com::COINIT_APARTMENTTHREADED,

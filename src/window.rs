@@ -645,12 +645,25 @@ fn clear_passwords_now() {
 fn about() {
     let r = app::with(|s| (s.hwnd, s.browser_version.clone(), s.tabs.len()));
     let Some((hwnd, ver, n)) = r else { return };
+    // Display scale and whether Windows lets Suppa draw sharp at it.
+    let display = unsafe {
+        use windows::Win32::UI::HiDpi::*;
+        let dpi = GetDpiForWindow(hwnd).max(96);
+        let aware = GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(hwnd));
+        let mode = match aware {
+            DPI_AWARENESS_PER_MONITOR_AWARE => "sharp",
+            DPI_AWARENESS_SYSTEM_AWARE => "system scale, may blur on other monitors",
+            _ => "stretched by Windows (blurry)",
+        };
+        format!("{}% ({mode})", dpi * 100 / 96)
+    };
     util::info(
         hwnd,
         &format!(
-            "About Suppa Browser\n\nVersion: {}\nPlatform: Windows (64-bit)\nEngine: Microsoft Edge WebView2 {}\nAd blocker: {}\nOpen tabs: {}\nData folder: {}\n\nhttps://github.com/Un1que0ff/suppa-browser",
+            "About Suppa Browser\n\nVersion: {}\nPlatform: Windows (64-bit)\nEngine: Microsoft Edge WebView2 {}\nDisplay scale: {}\nAd blocker: {}\nOpen tabs: {}\nData folder: {}\n\nhttps://github.com/Un1que0ff/suppa-browser",
             env!("CARGO_PKG_VERSION"),
             if ver.is_empty() { "(starting)" } else { &ver },
+            display,
             if adblock::is_ready() { "active" } else { "loading" },
             n,
             util::data_dir().display()
