@@ -117,6 +117,14 @@ pub fn create(id: u32) {
     })
     .flatten();
     let Some((env, hwnd, incognito)) = r else { return };
+    // A new page view starts in the theme's background colour instead of white
+    // (no white flash when opening or waking a tab). WebView2 reads this when the
+    // view is created; setup() switches to white once the page's content loads.
+    let bg = app::with(|s| s.ui.bg.0).unwrap_or(0x161616);
+    let argb = format!("FF{:02X}{:02X}{:02X}", bg & 255, (bg >> 8) & 255, (bg >> 16) & 255);
+    unsafe {
+        std::env::set_var("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", argb);
+    }
     let handler = CreateCoreWebView2ControllerCompletedHandler::create(Box::new(move |res, ctrl| {
         match (res, ctrl) {
             (Ok(()), Some(c)) => setup(id, c),
@@ -175,6 +183,25 @@ fn setup(id: u32, controller: ICoreWebView2Controller) {
         add_cookie_script(id, &wv);
     }
     register_events(id, &controller, &wv);
+    // Theme colour until the first page starts drawing, then the normal white base
+    // (pages without a background of their own look as in any browser).
+    unsafe {
+        let bg = app::with(|s| s.ui.bg.0).unwrap_or(0x161616);
+        if let Ok(c2) = controller.cast::<ICoreWebView2Controller2>() {
+            let _ = c2.SetDefaultBackgroundColor(COREWEBVIEW2_COLOR { A: 255, R: bg as u8, G: (bg >> 8) as u8, B: (bg >> 16) as u8 });
+            let done = std::rc::Rc::new(std::cell::Cell::new(false));
+            let mut token = 0i64;
+            let _ = wv.add_ContentLoading(
+                &ContentLoadingEventHandler::create(Box::new(move |_, _| {
+                    if !done.replace(true) {
+                        let _ = c2.SetDefaultBackgroundColor(COREWEBVIEW2_COLOR { A: 255, R: 255, G: 255, B: 255 });
+                    }
+                    Ok(())
+                })),
+                &mut token,
+            );
+        }
+    }
 
     let r = app::with(|s| {
         let rect = ui::content_rect(s);

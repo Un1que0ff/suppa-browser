@@ -665,8 +665,8 @@ pub fn palette(st: &crate::settings::Settings) -> Vec<(&'static str, String)> {
         .iter()
         .zip(base)
         .map(|(&name, c)| {
-            // Text is tinted less, so it stays easy to read.
-            let a = if matches!(name, "fg" | "muted" | "tab-fg") { amount * 0.35 } else { amount };
+            // Text keeps its own colour (only backgrounds, buttons and lines are tinted).
+            let a = if matches!(name, "fg" | "muted" | "tab-fg") { 0.0 } else { amount };
             // Tabs follow a custom button / secondary text colour unless set themselves.
             let own = get(name).or_else(|| match name {
                 "tab" => get("btn"),

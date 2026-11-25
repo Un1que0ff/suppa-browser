@@ -42,6 +42,10 @@ html, body {
   font: 600 10pt "Segoe UI", system-ui, sans-serif;
 }
 svg { display: block; }
+/* Scrollbars (tab / saved-tab columns) in the interface colours */
+::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--btn-hover); border: 3px solid transparent; background-clip: padding-box; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--muted); }
 button svg, .ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: var(--ic-w); stroke-linecap: var(--ic-cap); stroke-linejoin: var(--ic-join); }
 svg .f { fill: var(--ic-fill); fill-opacity: var(--ic-fo); }
 /* duotone only: soft fill (e.g. the globe) */

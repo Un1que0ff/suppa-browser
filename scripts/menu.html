@@ -14,6 +14,10 @@
   body.light { --panel: #ffffff; --hover: #ececec; --fg: #1c1c1c; --muted: #6b6b6b; --border: #d0d0d0; }
   * { box-sizing: border-box; }
   body.squircle *, body.squircle *::before, body.squircle *::after { corner-shape: squircle; }
+  /* long menus: scrollbar in the interface colours */
+  ::-webkit-scrollbar { width: 10px; background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--hover); border: 3px solid transparent; background-clip: padding-box; border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background-color: var(--muted); }
   /* Corner pixels between the window's cut and the drawn outline take the outline
      colour, so the rounded outline looks continuous all the way round. */
   html, body { margin: 0; background: var(--border); overflow: hidden; user-select: none; }
