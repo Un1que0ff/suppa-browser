@@ -147,6 +147,13 @@ struct State {
     pressed: Option<usize>,
     choice: Option<Option<usize>>,
     btn_rects: Vec<RECT>,
+    /// Optional folder field (with a Browse button) and checkboxes (form()).
+    field: Option<String>,
+    field_rect: RECT,
+    browse_rect: RECT,
+    checks: Vec<(String, bool)>,
+    check_rects: Vec<RECT>,
+    want_browse: bool,
     started: Instant,
     font_title: HFONT,
     font_text: HFONT,
@@ -195,17 +202,47 @@ const BTN_H: i32 = 34;
 /// Lays everything out for the current content; returns the window size.
 fn layout(st: &mut State) -> (i32, i32) {
     let s = st.scale;
-    let w = px(s, WIDTH);
     unsafe {
         let dc = GetDC(None);
+        // Wider than usual when the buttons need it.
+        let old = SelectObject(dc, st.font_btn.into());
+        let btns: i32 = st
+            .buttons
+            .iter()
+            .map(|b| {
+                let mut m = RECT::default();
+                let mut t = wide(b);
+                DrawTextW(dc, &mut t, &mut m, DT_CALCRECT | DT_SINGLELINE | DT_NOPREFIX);
+                (m.right - m.left + px(s, 36)).max(px(s, 96)) + px(s, 8)
+            })
+            .sum();
+        let w = px(s, WIDTH).max(btns + 2 * px(s, PAD));
         // body text height
-        let old = SelectObject(dc, st.font_text.into());
+        SelectObject(dc, st.font_text.into());
         let mut r = RECT { left: 0, top: 0, right: w - 2 * px(s, PAD), bottom: 0 };
         let mut t = wide(&st.text);
-        DrawTextW(dc, &mut t, &mut r, DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
+        DrawTextW(dc, &mut t, &mut r, DT_CALCRECT | DT_WORDBREAK | DT_EDITCONTROL | DT_NOPREFIX);
         let text_h = r.bottom - r.top;
         let body_top = px(s, PAD + ICON + 18);
         let mut y = body_top + text_h + px(s, 24);
+        // folder field + Browse
+        if st.field.is_some() {
+            let y0 = body_top + text_h + px(s, 16);
+            let bw = px(s, 96);
+            st.browse_rect = RECT { left: w - px(s, PAD) - bw, top: y0, right: w - px(s, PAD), bottom: y0 + px(s, BTN_H) };
+            st.field_rect = RECT { left: px(s, PAD), top: y0, right: st.browse_rect.left - px(s, 8), bottom: y0 + px(s, BTN_H) };
+            y = y0 + px(s, BTN_H) + px(s, 24);
+        }
+        // checkboxes
+        st.check_rects.clear();
+        if !st.checks.is_empty() {
+            let mut cy = y - px(s, 10);
+            for _ in &st.checks {
+                st.check_rects.push(RECT { left: px(s, PAD), top: cy, right: w - px(s, PAD), bottom: cy + px(s, 26) });
+                cy += px(s, 30);
+            }
+            y = cy + px(s, 14);
+        }
         // buttons, right aligned, primary on the right
         SelectObject(dc, st.font_btn.into());
         st.btn_rects.clear();
@@ -291,9 +328,52 @@ fn paint(st: &State, dc: HDC, w: i32, h: i32) {
         let top = px(s, PAD + ICON + 18);
         let mut r = RECT { left: pad, top, right: w - pad, bottom: h };
         let mut text = wide(&st.text);
-        DrawTextW(dc, &mut text, &mut r, DT_WORDBREAK | DT_NOPREFIX);
+        DrawTextW(dc, &mut text, &mut r, DT_WORDBREAK | DT_EDITCONTROL | DT_NOPREFIX);
 
         let rb = px(s, 2 * (t.radius - 1).max(0));
+        // folder field + Browse
+        if let Some(f) = &st.field {
+            let hot = st.hover == Some(BROWSE);
+            fill_round(dc, st.field_rect, rb, mix(t.panel, t.fg, 0.06), Some(if hot { t.accent } else { t.border }));
+            SelectObject(dc, st.font_text.into());
+            SetTextColor(dc, COLORREF(t.fg));
+            let mut r = st.field_rect;
+            r.left += px(s, 12);
+            r.right -= px(s, 10);
+            let mut txt = wide(f);
+            DrawTextW(dc, &mut txt, &mut r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_PATH_ELLIPSIS);
+            SelectObject(dc, st.font_btn.into());
+            fill_round(dc, st.browse_rect, rb, if hot { t.btn_hover } else { t.btn }, None);
+            let mut r = st.browse_rect;
+            let mut txt = wide("Browse\u{2026}");
+            DrawTextW(dc, &mut txt, &mut r, DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_NOPREFIX);
+        }
+        // checkboxes: accent box with a tick when on
+        for (i, (label, on)) in st.checks.iter().enumerate() {
+            let r = st.check_rects[i];
+            let b = px(s, 18);
+            let top = r.top + (r.bottom - r.top - b) / 2;
+            let bx = RECT { left: r.left, top, right: r.left + b, bottom: top + b };
+            let hot = st.hover == Some(CHECK + i);
+            let rr = px(s, 2 * (t.radius / 3).clamp(2, 5));
+            if *on {
+                fill_round(dc, bx, rr, if hot { mix(t.accent, 0xffffff, 0.14) } else { t.accent }, None);
+                let pen = CreatePen(PS_SOLID, px(s, 2).max(2), COLORREF(t.on_accent));
+                let op = SelectObject(dc, pen.into());
+                let _ = MoveToEx(dc, bx.left + px(s, 4), top + px(s, 9), None);
+                let _ = LineTo(dc, bx.left + px(s, 8), top + px(s, 13));
+                let _ = LineTo(dc, bx.left + px(s, 14), top + px(s, 5));
+                SelectObject(dc, op);
+                let _ = DeleteObject(pen.into());
+            } else {
+                fill_round(dc, bx, rr, t.panel, Some(if hot { t.accent } else { t.muted }));
+            }
+            SelectObject(dc, st.font_text.into());
+            SetTextColor(dc, COLORREF(t.fg));
+            let mut lr = RECT { left: bx.right + px(s, 10), ..r };
+            let mut txt = wide(label);
+            DrawTextW(dc, &mut txt, &mut lr, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+        }
         if st.busy {
             // indeterminate progress bar
             let y = h - px(s, 22) - px(s, 6);
@@ -331,11 +411,22 @@ fn paint(st: &State, dc: HDC, w: i32, h: i32) {
     }
 }
 
+/// Browse button and checkboxes share the hover/press logic with the buttons.
+const BROWSE: usize = 1000;
+const CHECK: usize = 2000;
+
 fn button_at(st: &State, x: i32, y: i32) -> Option<usize> {
     if st.busy {
         return None;
     }
-    st.btn_rects.iter().position(|r| x >= r.left && x < r.right && y >= r.top && y < r.bottom)
+    let inside = |r: &RECT| x >= r.left && x < r.right && y >= r.top && y < r.bottom;
+    if let Some(i) = st.btn_rects.iter().position(inside) {
+        return Some(i);
+    }
+    if st.field.is_some() && (inside(&st.browse_rect) || inside(&st.field_rect)) {
+        return Some(BROWSE);
+    }
+    st.check_rects.iter().position(inside).map(|i| CHECK + i)
 }
 
 fn with<R>(f: impl FnOnce(&mut State) -> R) -> Option<R> {
@@ -382,7 +473,15 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRES
                 with(|st| {
                     let b = button_at(st, x, y);
                     if b.is_some() && b == st.pressed {
-                        st.choice = Some(b);
+                        match b {
+                            Some(BROWSE) => st.want_browse = true,
+                            Some(i) if i >= CHECK => {
+                                if let Some(c) = st.checks.get_mut(i - CHECK) {
+                                    c.1 = !c.1;
+                                }
+                            }
+                            _ => st.choice = Some(b),
+                        }
                     }
                     st.pressed = None;
                 });
@@ -494,6 +593,12 @@ fn ensure_window(title: &str) -> HWND {
             pressed: None,
             choice: None,
             btn_rects: Vec::new(),
+            field: None,
+            field_rect: RECT::default(),
+            browse_rect: RECT::default(),
+            checks: Vec::new(),
+            check_rects: Vec::new(),
+            want_browse: false,
             started: Instant::now(),
             font_title: font(px(scale, 18), 600),
             font_text: font(px(scale, 14), 400),
@@ -518,6 +623,9 @@ fn set_content(window_title: &str, title: &str, text: &str, buttons: &[&str], pr
         st.pressed = None;
         st.choice = None;
         st.started = Instant::now();
+        st.field = None;
+        st.checks.clear();
+        st.want_browse = false;
         let (w, h) = layout(st);
         apply_shape(st, w, h);
         (w, h)
@@ -574,6 +682,96 @@ pub fn dialog(window_title: &str, title: &str, text: &str, buttons: &[&str], pri
         if !pump_once() {
             return None;
         }
+    }
+}
+
+/// Lays the window out again after its content changed (keeps it centred).
+fn refit(hwnd: HWND) {
+    let Some((w, h)) = with(|st| {
+        let (w, h) = layout(st);
+        apply_shape(st, w, h);
+        (w, h)
+    }) else {
+        return;
+    };
+    unsafe {
+        let mut r = RECT::default();
+        let _ = GetWindowRect(hwnd, &mut r);
+        let (cx, cy) = ((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+        let _ = SetWindowPos(hwnd, None, cx - w / 2, cy - h / 2, w, h, SWP_NOZORDER);
+        let _ = InvalidateRect(Some(hwnd), None, false);
+    }
+}
+
+/// A question with an optional folder field (Browse… picks another folder) and
+/// checkboxes. Returns the button (None = closed), the folder and the checkboxes.
+pub fn form(
+    window_title: &str,
+    title: &str,
+    text: &str,
+    folder: Option<&str>,
+    checks: &[(&str, bool)],
+    buttons: &[&str],
+    primary: usize,
+) -> (Option<usize>, Option<String>, Vec<bool>) {
+    let hwnd = set_content(window_title, title, text, buttons, primary, false);
+    with(|st| {
+        st.field = folder.map(str::to_string);
+        st.checks = checks.iter().map(|(l, on)| (l.to_string(), *on)).collect();
+    });
+    refit(hwnd);
+    let result = |c: Option<usize>| {
+        with(|st| (c, st.field.clone(), st.checks.iter().map(|c| c.1).collect())).unwrap_or((c, None, Vec::new()))
+    };
+    loop {
+        if let Some(Some(c)) = with(|st| st.choice) {
+            return result(c);
+        }
+        if with(|st| std::mem::take(&mut st.want_browse)) == Some(true) {
+            let cur = with(|st| st.field.clone()).flatten().unwrap_or_default();
+            if let Some(p) = pick_folder(hwnd, &cur) {
+                // Suppa gets its own folder inside the chosen one (D:\Apps -> D:\Apps\Suppa),
+                // so removing it later never touches anything else there.
+                let path = std::path::PathBuf::from(&p);
+                let own = path.file_name().is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case("Suppa"));
+                let p = if own { p } else { path.join("Suppa").display().to_string() };
+                with(|st| st.field = Some(p));
+                refit(hwnd);
+            }
+        }
+        if !pump_once() {
+            return result(None);
+        }
+    }
+}
+
+/// Windows' folder picker, opened at `start` (or the nearest folder that exists).
+fn pick_folder(owner: HWND, start: &str) -> Option<String> {
+    use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, CoTaskMemFree};
+    use windows::Win32::UI::Shell::{
+        FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS, FileOpenDialog, IFileOpenDialog, IShellItem, SHCreateItemFromParsingName, SIGDN_FILESYSPATH,
+    };
+    unsafe {
+        let dlg: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
+        let opts = dlg.GetOptions().ok()?;
+        dlg.SetOptions(opts | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM).ok()?;
+        let _ = dlg.SetTitle(w!("Choose where to install Suppa"));
+        let mut p = std::path::Path::new(start);
+        while !p.exists() {
+            match p.parent() {
+                Some(up) => p = up,
+                None => break,
+            }
+        }
+        if let Ok(item) = SHCreateItemFromParsingName::<_, _, IShellItem>(&HSTRING::from(p.as_os_str()), None) {
+            let _ = dlg.SetFolder(&item);
+        }
+        dlg.Show(Some(owner)).ok()?;
+        let item = dlg.GetResult().ok()?;
+        let name = item.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
+        let s = name.to_string().ok();
+        CoTaskMemFree(Some(name.0 as *const _));
+        s
     }
 }
 

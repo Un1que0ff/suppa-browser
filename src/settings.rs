@@ -45,7 +45,24 @@ pub struct Settings {
     /// Text/icon colour on accent backgrounds: "auto", "black" or "white".
     pub on_accent: String,
     /// Layout: where the bar is: "top", "bottom", "left" or "right".
+    /// (Older setting; each row now has its own place, see tabs_pos etc.)
     pub bar_pos: String,
+    /// Layout: where each row is ("top", "bottom", "left" or "right").
+    pub tabs_pos: String,
+    pub nav_pos: String,
+    pub saved_pos: String,
+    /// Theme: "dark", "darker", "light" or "lighter" (dark = dark or darker).
+    pub theme: String,
+    /// Tint over the whole interface: "#rrggbb" and how strong in percent (0 = off).
+    pub tint: String,
+    pub tint_amount: i32,
+    /// Which tab corners are rounded: "auto" (the ones away from the page) or
+    /// four 0/1 flags in the order top-left, top-right, bottom-right, bottom-left.
+    pub tab_corners: String,
+    /// Corner shape of the whole interface: "round" or "squircle".
+    pub corner_shape: String,
+    /// Icon style: "line", "bold", "sharp", "filled" or "duotone".
+    pub icon_pack: String,
     /// Layout: width of the bar when it is on the left/right (CSS px).
     pub side_width: i32,
     /// Layout: order of the bar rows ("tabs", "nav", "saved").
@@ -92,6 +109,42 @@ pub fn valid_bar_pos(v: &str) -> String {
     .to_string()
 }
 
+/// Tint strength (min, default, max) in percent.
+pub const TINT: (i32, i32, i32) = (0, 0, 60);
+
+pub fn valid_theme(v: &str) -> String {
+    match v.trim() {
+        "darker" => "darker",
+        "light" => "light",
+        "lighter" => "lighter",
+        _ => "dark",
+    }
+    .to_string()
+}
+
+pub fn valid_tint(v: &str) -> String {
+    let v = v.trim();
+    if valid_hex(v) { v.to_ascii_lowercase() } else { "#ff0000".to_string() }
+}
+
+/// "auto" or four 0/1 flags (top-left, top-right, bottom-right, bottom-left).
+pub fn valid_tab_corners(v: &str) -> String {
+    let v = v.trim();
+    if v.len() == 4 && v.chars().all(|c| c == '0' || c == '1') { v.to_string() } else { "auto".to_string() }
+}
+
+pub fn valid_icon_pack(v: &str) -> String {
+    match v.trim() {
+        p @ ("bold" | "sharp" | "filled" | "duotone") => p,
+        _ => "line",
+    }
+    .to_string()
+}
+
+pub fn valid_corner_shape(v: &str) -> String {
+    if v.trim() == "squircle" { "squircle" } else { "round" }.to_string()
+}
+
 pub fn default_order() -> Vec<String> {
     vec!["tabs".into(), "nav".into(), "saved".into()]
 }
@@ -117,6 +170,57 @@ fn valid_hex(v: &str) -> bool {
 }
 
 impl Settings {
+    /// Theme name that matches `dark` (keeps "darker"/"lighter" when they fit).
+    pub fn theme_name(&self) -> &str {
+        let t = self.theme.as_str();
+        match (self.dark, t) {
+            (true, "darker") | (false, "light") | (false, "lighter") => t,
+            (true, _) => "dark",
+            (false, _) => "light",
+        }
+    }
+    /// Switches between light and dark, keeping the strength ("darker" <-> "lighter").
+    pub fn set_dark(&mut self, dark: bool) {
+        let extra = matches!(self.theme_name(), "darker" | "lighter");
+        self.theme = match (dark, extra) {
+            (true, true) => "darker",
+            (true, false) => "dark",
+            (false, true) => "lighter",
+            (false, false) => "light",
+        }
+        .to_string();
+        self.dark = dark;
+    }
+    pub fn set_theme(&mut self, theme: &str) {
+        self.theme = valid_theme(theme);
+        self.dark = matches!(self.theme.as_str(), "dark" | "darker");
+    }
+    /// Puts every row at one place (the older "bar position").
+    pub fn set_bar_pos(&mut self, v: &str) {
+        self.bar_pos = valid_bar_pos(v);
+        self.tabs_pos = self.bar_pos.clone();
+        self.nav_pos = self.bar_pos.clone();
+        self.saved_pos = self.bar_pos.clone();
+    }
+    /// Sets the place of one row; bar_pos follows the address bar (for Linux).
+    pub fn set_row_pos(&mut self, row: &str, v: &str) {
+        let v = valid_bar_pos(v);
+        match row {
+            "tabs" => self.tabs_pos = v,
+            "nav" => self.nav_pos = v,
+            "saved" => self.saved_pos = v,
+            _ => return,
+        }
+        self.bar_pos = self.nav_pos.clone();
+    }
+    /// Place of a row: "tabs", "nav" or "saved".
+    pub fn row_pos(&self, row: &str) -> &str {
+        match row {
+            "tabs" => &self.tabs_pos,
+            "nav" => &self.nav_pos,
+            _ => &self.saved_pos,
+        }
+    }
     /// Custom colours of the current theme.
     pub fn colors(&self) -> &Vec<(String, String)> {
         if self.dark { &self.colors_dark } else { &self.colors_light }
@@ -159,6 +263,15 @@ impl Default for Settings {
             ui_scale: UI_SCALE.1,
             on_accent: "auto".to_string(),
             bar_pos: "top".to_string(),
+            tabs_pos: "top".to_string(),
+            nav_pos: "top".to_string(),
+            saved_pos: "top".to_string(),
+            theme: "dark".to_string(),
+            tint: "#ff0000".to_string(),
+            tint_amount: TINT.1,
+            tab_corners: "auto".to_string(),
+            corner_shape: "round".to_string(),
+            icon_pack: "line".to_string(),
             side_width: SIDE_W.1,
             row_order: default_order(),
             colors_dark: Vec::new(),
@@ -227,7 +340,12 @@ pub fn load() -> Settings {
             "sleep_minutes" => s.sleep_minutes = v.parse().unwrap_or(5).max(1),
             "discard_minutes" => s.discard_minutes = v.parse().unwrap_or(30),
             "restore_session" => s.restore_session = v != "0",
-            "theme" => s.dark = v != "light",
+            "theme" => s.set_theme(v),
+            "tint" => s.tint = valid_tint(v),
+            "tint_amount" => s.tint_amount = clamp_row(v.parse().unwrap_or(TINT.1), TINT),
+            "tab_corners" => s.tab_corners = valid_tab_corners(v),
+            "corner_shape" => s.corner_shape = valid_corner_shape(v),
+            "icon_pack" => s.icon_pack = valid_icon_pack(v),
             "home" => s.home = if v.is_empty() { DEFAULT_HOME.to_string() } else { v.to_string() },
             "accent" => s.accent = valid_accent(v),
             "cookies" => s.auto_cookies = v != "0",
@@ -244,10 +362,14 @@ pub fn load() -> Settings {
             "on_accent" => s.on_accent = valid_on_accent(v),
             "bar_bottom" => {
                 if v == "1" {
-                    s.bar_pos = "bottom".to_string(); // older settings files
+                    s.set_bar_pos("bottom"); // older settings files
                 }
             }
-            "bar_pos" => s.bar_pos = valid_bar_pos(v),
+            // Older files have only bar_pos: every row goes there.
+            "bar_pos" => s.set_bar_pos(v),
+            "tabs_pos" => s.tabs_pos = valid_bar_pos(v),
+            "nav_pos" => s.nav_pos = valid_bar_pos(v),
+            "saved_pos" => s.saved_pos = valid_bar_pos(v),
             "side_width" => s.side_width = clamp_row(v.parse().unwrap_or(SIDE_W.1), SIDE_W),
             "row_order" => s.row_order = valid_order(v),
             // color_dark=bg:#101010
@@ -294,7 +416,9 @@ pub fn save(s: &Settings) {
     out.push_str(&format!("sleep_minutes={}\n", s.sleep_minutes));
     out.push_str(&format!("discard_minutes={}\n", s.discard_minutes));
     out.push_str(&format!("restore_session={}\n", s.restore_session as u8));
-    out.push_str(&format!("theme={}\n", if s.dark { "dark" } else { "light" }));
+    out.push_str(&format!("theme={}\n", s.theme_name()));
+    out.push_str(&format!("tint={}\ntint_amount={}\n", s.tint, s.tint_amount));
+    out.push_str(&format!("tab_corners={}\ncorner_shape={}\nicon_pack={}\n", s.tab_corners, s.corner_shape, s.icon_pack));
     out.push_str(&format!("home={}\n", s.home));
     out.push_str(&format!("accent={}\n", s.accent));
     out.push_str(&format!("cookies={}\n", s.auto_cookies as u8));
@@ -308,6 +432,7 @@ pub fn save(s: &Settings) {
     out.push_str(&format!("ui_scale={}\n", s.ui_scale));
     out.push_str(&format!("on_accent={}\n", s.on_accent));
     out.push_str(&format!("bar_pos={}\nside_width={}\nrow_order={}\n", s.bar_pos, s.side_width, s.row_order.join(",")));
+    out.push_str(&format!("tabs_pos={}\nnav_pos={}\nsaved_pos={}\n", s.tabs_pos, s.nav_pos, s.saved_pos));
     for (n, h) in &s.colors_dark {
         out.push_str(&format!("color_dark={n}:{h}\n"));
     }

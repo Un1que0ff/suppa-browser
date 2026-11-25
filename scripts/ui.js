@@ -267,9 +267,10 @@ function renderTabs() {
 
 // Chrome-like widths: every tab is TAB_MAX wide until the row is full, then
 // all shrink evenly. "+" always sits right after the last tab.
-// Direction tabs / saved tabs run in: across (bar on top/bottom) or down (side bar).
-function AX() {
-  return document.body.classList.contains('side')
+// Direction tabs / saved tabs run in: across (row at the top/bottom) or down (in a column).
+const inCol = (k) => !!$(k === 'tabs' ? 'row1' : k === 'nav' ? 'row2' : 'row3').closest('.col');
+function AX(k) {
+  return inCol(k)
     ? { pos: 'clientY', start: 'top', end: 'bottom', size: 'height', tr: 'translateY' }
     : { pos: 'clientX', start: 'left', end: 'right', size: 'width', tr: 'translateX' };
 }
@@ -277,12 +278,12 @@ function AX() {
 function layoutTabs() {
   const n = tabEls.length;
   if (!n) return;
-  if (document.body.classList.contains('side')) {   // side bar: full-width list, no width maths
+  if (inCol('tabs')) {   // tabs in a column: full-width list, no width maths
     for (const el of tabEls) el.style.width = '';
     return;
   }
   const row = $('row1').clientWidth;
-  const ctlInRow = $('winctl').parentNode === $('row1') ? $('winctl').offsetWidth : 0;
+  const ctlInRow = $('winctl').parentNode === $('row1') ? $('winctl').offsetWidth + 14 : 0;
   // Group labels take room too; tabs of collapsed groups don't.
   const chipsW = [...chipById.values()].filter((c) => c.isConnected).reduce((a, c) => a + c.offsetWidth + 3, 0);
   const visible = tabEls.filter((el) => !el.classList.contains('gcollapsed')).length || 1;
@@ -307,7 +308,7 @@ function startTabDrag(e, el) {
 function onTabDragMove(e) {
   const d = tabDrag;
   if (!d) return;
-  const ax = AX();
+  const ax = AX('tabs');
   const dx = ax.pos === 'clientY' ? e.clientY - d.y0 : e.clientX - d.x0;
   if (!d.on) {
     if (Math.abs(e.clientX - d.x0) < 6 && Math.abs(e.clientY - d.y0) < 6) return;
@@ -397,7 +398,7 @@ function onTabDragEnd(e) {
   }
   // Settle: move the element in the row now (no jump), tell the browser.
   const moved = d.to !== d.from && e.type === 'pointerup';
-  const ax = AX();
+  const ax = AX('tabs');
   const rectBefore = d.el.getBoundingClientRect()[ax.start];
   tabEls.forEach((t) => { t.style.transition = 'none'; t.style.transform = ''; });
   if (moved) {
@@ -428,7 +429,10 @@ function renderState() {
   star.title = state.star ? 'Saved - click to remove from the saved tabs bar' : 'Save this website to the saved tabs bar';
   $('back').disabled = !state.back;
   $('fwd').disabled = !state.fwd;
-  document.body.classList.toggle('max', !!state.max);
+  if (document.body.classList.contains('max') !== !!state.max) {
+    document.body.classList.toggle('max', !!state.max);
+    applyRows();   // the resize strip above the page comes and goes
+  }
   document.body.classList.toggle('inc', !!state.inc);
   const maxIcon = state.max ? 'restore' : 'max';
   if ($('max').dataset.icon !== maxIcon) { $('max').dataset.icon = maxIcon; $('max').innerHTML = WIN_ICONS[maxIcon]; }
@@ -449,8 +453,9 @@ $('max').innerHTML = WIN_ICONS.max;
 $('max').dataset.icon = 'max';
 
 // ---------- saved tabs (row 3) ----------
-const FOLDER_ICON = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.5A1.5 1.5 0 0 1 3 2h3.2l1.5 1.6H13A1.5 1.5 0 0 1 14.5 5v7A1.5 1.5 0 0 1 13 13.5H3A1.5 1.5 0 0 1 1.5 12z"/></svg>';
-const GLOBE_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="6.3"/><path d="M1.7 8h12.6M8 1.7c2 2 2 10.6 0 12.6M8 1.7c-2 2-2 10.6 0 12.6"/></svg>';
+// Saved-tab icons follow the icon style (class "ico"; "f" = filled in Filled/Duotone).
+const FOLDER_ICON = '<svg class="ico" viewBox="0 0 16 16"><path class="f" d="M1.8 4A1.3 1.3 0 0 1 3.1 2.7h3l1.5 1.6h5.3a1.3 1.3 0 0 1 1.3 1.3V12a1.3 1.3 0 0 1-1.3 1.3H3.1A1.3 1.3 0 0 1 1.8 12z"/></svg>';
+const GLOBE_ICON = '<svg class="ico" viewBox="0 0 16 16" style="stroke-width:calc(var(--ic-w) * .8)"><circle class="d" cx="8" cy="8" r="6.3"/><path d="M1.7 8h12.6M8 1.7c2 2 2 10.6 0 12.6M8 1.7c-2 2-2 10.6 0 12.6"/></svg>';
 let saved = [];
 const isFolder = (n) => n && n.f !== undefined;
 
@@ -503,7 +508,7 @@ function dropTarget(x) {
   const rects = drag.rects;
   const from = drag.i;
   const dragged = saved[from];
-  const ax = AX();
+  const ax = AX('saved');
   for (let k = 0; k < rects.length; k++) {
     const r = rects[k];
     if (x > r[ax.end] + 1 && k < rects.length - 1) continue;
@@ -529,7 +534,7 @@ function showDrop(x) {
       if (k > d.i && k < t) shift = -d.w;          // moving right: items in between slide left
       else if (k < d.i && k >= t) shift = d.w;     // moving left: items in between slide right
     }
-    el.style.transform = shift ? AX().tr + '(' + shift + 'px)' : '';
+    el.style.transform = shift ? AX('saved').tr + '(' + shift + 'px)' : '';
     el.classList.toggle('drop-into', !!(d.drop && d.drop.kind !== 'before' && d.drop.target === k));
   });
 }
@@ -545,10 +550,10 @@ $('saved').addEventListener('pointermove', (e) => {
   if (!drag.on) {
     drag.on = true;
     drag.rects = savedEls().map((x) => x.getBoundingClientRect());
-    drag.w = drag.rects[drag.i][AX().size] + 2;     // item size + gap
+    drag.w = drag.rects[drag.i][AX('saved').size] + 2;     // item size + gap
     drag.el.classList.add('dragging');
   }
-  const ax = AX();
+  const ax = AX('saved');
   const along = ax.pos === 'clientY' ? e.clientY - drag.y : e.clientX - drag.x;
   drag.el.style.transform = ax.tr + '(' + along + 'px)';
   showDrop(e[ax.pos]);
@@ -568,7 +573,7 @@ function endDrag(e, cancelled) {
     if (drop && drop.kind === 'before') {
       // Reorder right away (the browser confirms with the same order).
       const els = savedEls();
-      const ax = AX();
+      const ax = AX('saved');
       const before = d.el.getBoundingClientRect()[ax.start];
       els.forEach((x) => { x.style.transition = 'none'; x.style.transform = ''; });
       const to = drop.target > d.i ? drop.target - 1 : drop.target;
@@ -647,47 +652,91 @@ function startRename(path) {
 // ---------- resizable rows (drag the line under a row; ≡ -> Lock bar sizes) ----------
 const ROW_LIMITS = [[28, 72], [34, 80], [22, 56]];   // must match settings.rs
 let rows = [40, 46, 30];
-// Row order (Settings -> Layout): rows are stacked in this order.
+// Row order (Settings -> Layout): rows at the same edge are stacked in this order.
 let order = ['tabs', 'nav', 'saved'];
+// Where each row is: top, bottom, left or right (Settings -> Layout).
+let pos = { tabs: 'top', nav: 'top', saved: 'top' };
+const ROW_EL = { tabs: 'row1', nav: 'row2', saved: 'row3' };
+const SIZER = { tabs: 'sz-tabs', nav: 'sz-nav', saved: 'sz-saved' };
+const sizerDir = { tabs: 1, nav: 1, saved: 1 };   // +1: drag down = taller, -1: drag up = taller
+// The bar fills the whole window; rows sit at the edges and the page covers the
+// rest (#hole). Rust computes the same rectangle for the page (ui.rs edges()).
 function applyRows() {
   const st = document.documentElement.style;
   st.setProperty('--row1', rows[0] + 'px');
   st.setProperty('--row2', rows[1] + 'px');
   st.setProperty('--row3', rows[2] + 'px');
+  st.setProperty('--side-w', sideW + 'px');
   const h = { tabs: rows[0], nav: rows[1], saved: rows[2] };
   const showSaved = document.body.classList.contains('saved');
+  const vis = order.filter((k) => k !== 'saved' || showSaved);
+  const at = (p) => vis.filter((k) => pos[k] === p);
+  const top = at('top'), bot = at('bottom'), left = at('left'), right = at('right');
+  const topH = top.reduce((a, k) => a + h[k], 0);
+  const botH = bot.reduce((a, k) => a + h[k], 0);
+  order.forEach((k, i) => st.setProperty('--o-' + k, i));      // order inside a column
+  // Rows at the top / bottom: full width, stacked.
   let y = 0;
-  for (const k of order) {
-    st.setProperty('--o-' + k, order.indexOf(k));       // side bar: section order
-    if (k === 'saved' && !showSaved) continue;
-    st.setProperty('--t-' + k, y + 'px');
+  for (const k of top) {
+    const el = $(ROW_EL[k]);
+    if (el.parentNode !== document.body) document.body.insertBefore(el, $('sz-tabs'));
+    el.style.top = y + 'px';
+    el.style.bottom = '';
+    $(SIZER[k]).style.top = (y + h[k] - 3) + 'px';
+    sizerDir[k] = 1;
     y += h[k];
   }
-  document.body.classList.toggle('tabs-below', order.indexOf('tabs') > order.indexOf('nav'));
-  placeWindowButtons(showSaved);
+  let below = botH;
+  for (const k of bot) {
+    const el = $(ROW_EL[k]);
+    if (el.parentNode !== document.body) document.body.insertBefore(el, $('sz-tabs'));
+    el.style.top = 'calc(100% - ' + below + 'px)';
+    el.style.bottom = '';
+    $(SIZER[k]).style.top = 'calc(100% - ' + (below + 2) + 'px)';
+    sizerDir[k] = -1;
+    below -= h[k];
+  }
+  // Rows at the left / right: into that column.
+  for (const [col, list] of [['colL', left], ['colR', right]]) {
+    const c = $(col);
+    c.classList.toggle('on', list.length > 0);
+    c.style.top = topH + 'px';
+    c.style.bottom = botH + 'px';
+    for (const k of list) {
+      const el = $(ROW_EL[k]);
+      if (el.parentNode !== c) c.appendChild(el);
+      el.style.top = '';
+      el.style.bottom = '';
+    }
+  }
+  for (const k of order) $(SIZER[k]).classList.toggle('off', !vis.includes(k) || pos[k] === 'left' || pos[k] === 'right');
+  // The page: everything else (a thin strip stays at the top for resizing).
+  const hole = $('hole');
+  const strip = topH ? 0 : (document.body.classList.contains('max') ? 0 : 4);
+  hole.style.left = (left.length ? sideW : 0) + 'px';
+  hole.style.right = (right.length ? sideW : 0) + 'px';
+  hole.style.top = (topH || strip) + 'px';
+  hole.style.bottom = botH + 'px';
+  // Tabs point at the address bar when it is at the same edge, else at the page.
+  const same = pos.tabs === pos.nav && (pos.tabs === 'top' || pos.tabs === 'bottom');
+  document.body.classList.toggle('tabs-below', same ? order.indexOf('tabs') > order.indexOf('nav') : pos.tabs === 'bottom');
+  placeWindowButtons(top);
   layoutTabs();
 }
 
-// Window buttons live in the top row: the tab row normally, otherwise the
-// right end of whichever row is on top (shown as a rounded island).
-function placeWindowButtons(showSaved) {
-  const top = order.find((k) => k !== 'saved' || showSaved);
+// Window buttons: right end of the top-most row. No row at the top: Suppa
+// draws them itself, floating over the page (winbtn.rs).
+let nativeButtons = true;   // false on Linux: the buttons always stay in the bar
+function placeWindowButtons(top) {
   const ctl = $('winctl');
-  if (document.body.classList.contains('side')) {      // side bar: header at the top of the column
-    if (ctl.parentNode !== $('shead')) $('shead').appendChild(ctl);
-    ctl.classList.add('island');
-    document.body.classList.toggle('tabs-not-top', false);
-    return;
-  }
-  if (top === 'tabs') {
-    if (ctl.parentNode !== $('row1')) $('row1').appendChild(ctl);
-    ctl.classList.remove('island');
-  } else {
-    const row = $(top === 'nav' ? 'row2' : 'row3');
+  const vis = order.filter((k) => k !== 'saved' || document.body.classList.contains('saved'));
+  const first = top[0] || (nativeButtons ? '' : vis[0]);
+  ctl.classList.toggle('away', !first);
+  if (first) {
+    const row = $(ROW_EL[first]);
     if (ctl.parentNode !== row) row.appendChild(ctl);
-    ctl.classList.add('island');
   }
-  document.body.classList.toggle('tabs-not-top', top !== 'tabs');
+  document.body.classList.toggle('tabs-not-top', first !== 'tabs');
 }
 let rowsTimer = 0;
 function sendRows(save) {
@@ -705,7 +754,8 @@ function sendRows(save) {
     const y0 = e.screenY, start = rows[k];
     const move = (ev) => {
       const [lo, hi] = ROW_LIMITS[k];
-      const v = Math.max(lo, Math.min(hi, Math.round(start + ev.screenY - y0)));
+      const dir = sizerDir[['tabs', 'nav', 'saved'][k]];
+      const v = Math.max(lo, Math.min(hi, Math.round(start + dir * (ev.screenY - y0))));
       if (v !== rows[k]) { rows[k] = v; applyRows(); sendRows(false); }
     };
     const up = () => {
@@ -728,19 +778,18 @@ function sendRows(save) {
   });
 });
 
-// Side bar width: drag its inner edge (left bar: right edge, right bar: left edge).
+// Column width: drag its inner edge (left column: right edge, right column: left edge).
 let sideW = 260;
-(() => {
-  const el = $('sz-side');
+document.querySelectorAll('.sz-col').forEach((el) => {
   el.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || document.body.classList.contains('locked')) return;
     e.preventDefault();
     el.setPointerCapture(e.pointerId);
     el.classList.add('on');
-    const x0 = e.screenX, start = sideW, dir = document.body.classList.contains('side-right') ? -1 : 1;
+    const x0 = e.screenX, start = sideW, dir = el.parentNode.id === 'colR' ? -1 : 1;
     const move = (ev) => {
       const v = Math.max(180, Math.min(480, Math.round(start + dir * (ev.screenX - x0) / (window.devicePixelRatio || 1))));
-      if (v !== sideW) { sideW = v; sendRows(false); }
+      if (v !== sideW) { sideW = v; applyRows(); sendRows(false); }
     };
     const up = () => {
       el.classList.remove('on');
@@ -753,8 +802,8 @@ let sideW = 260;
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
   });
-  el.addEventListener('dblclick', () => { if (!document.body.classList.contains('locked')) { sideW = 260; sendRows(true); } });
-})();
+  el.addEventListener('dblclick', () => { if (!document.body.classList.contains('locked')) { sideW = 260; applyRows(); sendRows(true); } });
+});
 
 // ---------- extension buttons (right of the address bar) ----------
 function renderExts(items) {
@@ -790,14 +839,22 @@ window.chrome.webview.addEventListener('message', (e) => {
     document.body.classList.toggle('saved', !!m.saved);
     document.body.classList.toggle('locked', !!m.locked);
     if (Array.isArray(m.order) && m.order.length === 3) order = m.order;
-    const pos = m.bar_pos || 'top';
-    document.body.classList.toggle('bar-bottom', pos === 'bottom');
-    document.body.classList.toggle('side', pos === 'left' || pos === 'right');
-    document.body.classList.toggle('side-left', pos === 'left');
-    document.body.classList.toggle('side-right', pos === 'right');
+    if (m.pos) pos = { tabs: m.pos.tabs || 'top', nav: m.pos.nav || 'top', saved: m.pos.saved || 'top' };
+    else if (m.bar_pos) pos = { tabs: m.bar_pos, nav: m.bar_pos, saved: m.bar_pos };
+    nativeButtons = m.native_buttons !== false;
     if (typeof m.side_width === 'number') sideW = m.side_width;
+    // Icon style, corner style, tab corners
+    for (const p of ['bold', 'sharp', 'filled', 'duotone']) document.body.classList.toggle('ic-' + p, m.icons === p);
+    document.body.classList.toggle('squircle', !!m.squircle);
+    if (typeof m.radius === 'number') {
+      // Squircle corners look smaller than round ones of the same size, so they get a bigger radius.
+      const r = m.squircle ? Math.round(m.radius * 1.6) : m.radius;
+      document.documentElement.style.setProperty('--radius', r + 'px');
+    }
+    const tc = /^[01]{4}$/.test(m.tab_corners || '') ? m.tab_corners : '';
+    document.body.classList.toggle('tab-corners', !!tc);
+    if (tc) document.body.style.setProperty('--tab-r', [...tc].map((c) => c === '1' ? 'var(--radius)' : '0').join(' '));
     if (!m.rows) applyRows();
-    if (typeof m.radius === 'number') document.documentElement.style.setProperty('--radius', m.radius + 'px');
     if (m.rows) { rows = m.rows.slice(); applyRows(); }
     setTheme(m.dark, true);
   } else if (m.type === 'sync') {
@@ -814,7 +871,7 @@ window.chrome.webview.addEventListener('message', (e) => {
     const r3 = $('row3').getBoundingClientRect();
     if (m.y < r3.top - 4 || m.y > r3.bottom + 4 || m.x < r3.left - 4 || m.x > r3.right + 4 || !document.body.classList.contains('saved')) return;
     const els = savedEls();
-    const ax = AX();
+    const ax = AX('saved');
     const p = ax.pos === 'clientY' ? m.y : m.x;
     let drop = { kind: 'before', target: els.length };
     for (let k = 0; k < els.length; k++) {
@@ -872,9 +929,8 @@ let lastDown = 0;
 // Empty space drags the window: in the tab row, and in the top row when the
 // tabs are lower down (then that row holds the window buttons).
 function isCaption(el) {
-  if (el === $('row1') || el === $('tabs') || el === $('drag') || el === document.body || el === $('shead')) return true;
-  const topRow = document.body.classList.contains('tabs-not-top') && $('winctl').parentNode;
-  return !!topRow && (el === topRow || (topRow.id === 'row3' && el === $('saved')));
+  // Empty space of any row or column (rows can be at any edge).
+  return [$('row1'), $('tabs'), $('drag'), $('row2'), $('row3'), $('saved'), document.body].includes(el) || el.classList.contains('col');
 }
 const onCaptionDown = (e) => {
   if (e.button !== 0 || !isCaption(e.target)) return;
@@ -887,7 +943,7 @@ const onCaptionDown = (e) => {
   lastDown = now;
   post({ cmd: 'drag', edge: 'caption' });
 };
-for (const id of ['row1', 'row2', 'row3', 'shead']) $(id).addEventListener('mousedown', onCaptionDown);
+for (const id of ['row1', 'row2', 'row3', 'colL', 'colR']) $(id).addEventListener('mousedown', onCaptionDown);
 for (const [id, edge] of [['grip-top', 'top'], ['grip-tl', 'topleft'], ['grip-tr', 'topright']]) {
   $(id).addEventListener('mousedown', (e) => { if (e.button === 0) post({ cmd: 'drag', edge }); });
 }

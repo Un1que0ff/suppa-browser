@@ -72,8 +72,18 @@ fn send_state(wv: &ICoreWebView2) {
             "ui_scale": st.ui_scale,
             "on_accent": st.on_accent,
             "bar_pos": st.bar_pos,
+            "tabs_pos": st.tabs_pos,
+            "nav_pos": st.nav_pos,
+            "saved_pos": st.saved_pos,
             "row_order": st.row_order,
-            "colors": ui::colors_json(st),
+            "theme": st.theme_name(),
+            "tint": st.tint,
+            "tint_amount": st.tint_amount,
+            "tab_corners": st.tab_corners,
+            "corner_shape": st.corner_shape,
+            "icon_pack": st.icon_pack,
+            "colors": ui::custom_colors_json(st),
+            "palette": ui::colors_json(st),
             "windows_accent": ui::windows_accent(),
             "adblock": st.adblock,
             "cookies": st.auto_cookies,
@@ -122,9 +132,42 @@ fn set(key: &str, v: &serde_json::Value) {
             }
             "search" => st.search = (n as usize).min(SEARCH_ENGINES.len() - 1),
             "dark" => {
-                st.dark = b;
+                st.set_dark(b);
                 s.ui.dark = b;
                 theme_changed = true;
+            }
+            "theme" => {
+                st.set_theme(&text);
+                s.ui.dark = st.dark;
+                theme_changed = true;
+            }
+            "tint" => {
+                st.tint = settings::valid_tint(&text);
+                theme_changed = true;
+            }
+            "tint_amount" => {
+                st.tint_amount = settings::clamp_row(n as i32, settings::TINT);
+                theme_changed = true;
+            }
+            "tab_corners" => {
+                st.tab_corners = settings::valid_tab_corners(&text);
+                theme_changed = true;
+            }
+            "corner_shape" => {
+                st.corner_shape = settings::valid_corner_shape(&text);
+                theme_changed = true;
+            }
+            "icon_pack" => {
+                st.icon_pack = settings::valid_icon_pack(&text);
+                theme_changed = true;
+            }
+            // Layout: place of one row, value {row, pos}
+            "row_pos" => {
+                let row = v.get("row").and_then(|x| x.as_str()).unwrap_or("");
+                let pos = v.get("pos").and_then(|x| x.as_str()).unwrap_or("");
+                st.set_row_pos(row, pos);
+                theme_changed = true;
+                layout_changed = true;
             }
             "accent" => {
                 st.accent = settings::valid_accent(&text);
@@ -135,7 +178,7 @@ fn set(key: &str, v: &serde_json::Value) {
                 theme_changed = true;
             }
             "bar_pos" => {
-                st.bar_pos = settings::valid_bar_pos(&text);
+                st.set_bar_pos(&text);
                 theme_changed = true;
                 layout_changed = true;
             }

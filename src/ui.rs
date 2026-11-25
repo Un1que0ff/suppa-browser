@@ -17,11 +17,33 @@ use windows::core::{BOOL, HSTRING, Interface, PCSTR, PWSTR, w};
 use crate::app::{self, *};
 use crate::{newtab, scripts, settings, tabs, util};
 
-/// Height of the HTML bar in CSS pixels: tabs row + address row (+ saved-tabs
-/// row). The rows can be resized by dragging (sizes are in settings).
-fn bar_css(s: &app::State) -> i32 {
+/// Room the bar rows take at each window edge, in window px: (top, bottom, left, right).
+/// Each row (tabs, address bar, saved tabs) can be at any edge (Settings -> Layout);
+/// rows at the top/bottom are stacked, rows at the left/right share one column.
+pub fn edges(s: &app::State) -> (i32, i32, i32, i32) {
+    if s.fullscreen.is_some() {
+        return (0, 0, 0, 0);
+    }
     let st = &s.settings;
-    st.row_tabs + st.row_nav + if st.show_saved { st.row_saved } else { 0 }
+    let (mut t, mut b, mut l, mut r) = (0, 0, false, false);
+    for (row, h) in [("tabs", st.row_tabs), ("nav", st.row_nav), ("saved", st.row_saved)] {
+        if row == "saved" && !st.show_saved {
+            continue;
+        }
+        match st.row_pos(row) {
+            "bottom" => b += h,
+            "left" => l = true,
+            "right" => r = true,
+            _ => t += h,
+        }
+    }
+    let side = if l || r { scaled(st.side_width, s) } else { 0 };
+    (scaled(t, s), scaled(b, s), if l { side } else { 0 }, if r { side } else { 0 })
+}
+
+/// No row at the top: the window buttons float over the page (see winbtn.rs).
+pub fn floating_buttons(s: &app::State) -> bool {
+    s.fullscreen.is_none() && edges(s).0 == 0
 }
 
 pub struct Ui {
@@ -64,17 +86,13 @@ pub fn sc(v: i32, dpi: u32) -> i32 {
     v * dpi as i32 / 96
 }
 
-pub fn bar_height(s: &app::State) -> i32 {
-    if s.fullscreen.is_some() { 0 } else { scaled(bar_css(s), s) }
-}
-
 /// Interface scale (Settings -> Interface scale) as a factor, e.g. 1.25.
 pub fn zoom(s: &app::State) -> f64 {
     s.settings.ui_scale as f64 / 100.0
 }
 
 /// CSS px of the bar -> window px (DPI x interface scale).
-fn scaled(css: i32, s: &app::State) -> i32 {
+pub fn scaled(css: i32, s: &app::State) -> i32 {
     (css as f64 * s.dpi as f64 / 96.0 * zoom(s)).round() as i32
 }
 
@@ -87,41 +105,28 @@ pub fn content_rect(s: &app::State) -> RECT {
     if s.fullscreen.is_some() {
         return rc;
     }
-    // The page fills the window edge to edge, except where the bar is.
-    // A thin strip stays free at the top (bar not on top) so the window can be resized there.
-    let strip = top_strip(s);
-    let r = match s.settings.bar_pos.as_str() {
-        "bottom" => RECT { left: 0, top: strip, right: rc.right, bottom: rc.bottom - bar_height(s) },
-        "left" => RECT { left: side_px(s), top: strip, right: rc.right, bottom: rc.bottom },
-        "right" => RECT { left: 0, top: strip, right: rc.right - side_px(s), bottom: rc.bottom },
-        _ => RECT { left: 0, top: bar_height(s), right: rc.right, bottom: rc.bottom },
-    };
+    // The page fills the window, except where the bar rows are.
+    // A thin strip stays free at the top (no row on top) so the window can be resized there.
+    let (t, b, l, r) = edges(s);
+    let r = RECT { left: l, top: t.max(top_strip(s)), right: rc.right - r, bottom: rc.bottom - b };
     RECT { right: r.right.max(r.left), bottom: r.bottom.max(r.top), ..r }
 }
 
-/// Width of the side bar in window px.
-fn side_px(s: &app::State) -> i32 {
-    if s.fullscreen.is_some() { 0 } else { scaled(s.settings.side_width, s) }
-}
-
-/// Bar not at the top: height of the free strip at the window's top edge
+/// No row at the top: height of the free strip at the window's top edge
 /// (for resizing; 0 when maximized).
 pub fn top_strip(s: &app::State) -> i32 {
     let max = unsafe { IsZoomed(s.hwnd).as_bool() };
-    if s.settings.bar_pos != "top" && s.fullscreen.is_none() && !max { sc(4, s.dpi) } else { 0 }
+    if edges(s).0 == 0 && s.fullscreen.is_none() && !max { sc(4, s.dpi) } else { 0 }
 }
 
+/// The bar WebView fills the whole window, behind the page (its rows sit
+/// around the page; the hole in the middle is covered by the page).
 fn bar_rect(s: &app::State) -> RECT {
     let mut rc = RECT::default();
     unsafe {
         let _ = GetClientRect(s.hwnd, &mut rc);
     }
-    match s.settings.bar_pos.as_str() {
-        "bottom" => RECT { top: rc.bottom - bar_height(s), ..rc },
-        "left" => RECT { right: side_px(s), ..rc },
-        "right" => RECT { left: rc.right - side_px(s), ..rc },
-        _ => RECT { bottom: bar_height(s), ..rc },
-    }
+    rc
 }
 
 /// Is a client point in the free top strip (bar at the bottom)? Used for resizing.
@@ -171,8 +176,64 @@ pub fn paint(hwnd: HWND) {
 
 // ---- Bar WebView ------------------------------------------------------------------------
 
-/// Creates the top-bar WebView (called once the WebView2 environment exists).
+thread_local! {
+    /// Child window that holds the bar WebView. It covers the whole window and
+    /// is kept at the bottom, so the page (a sibling) is always drawn on top.
+    static HOST: Cell<HWND> = const { Cell::new(HWND(std::ptr::null_mut())) };
+}
+
+unsafe extern "system" fn host_proc(h: HWND, msg: u32, wp: windows::Win32::Foundation::WPARAM, lp: windows::Win32::Foundation::LPARAM) -> windows::Win32::Foundation::LRESULT {
+    unsafe {
+        if msg == WM_PAINT {
+            paint(h);
+            return windows::Win32::Foundation::LRESULT(0);
+        }
+        if msg == WM_ERASEBKGND {
+            return windows::Win32::Foundation::LRESULT(1);
+        }
+        DefWindowProcW(h, msg, wp, lp)
+    }
+}
+
+fn create_host(parent: HWND) -> HWND {
+    unsafe {
+        let hinst = windows::Win32::System::LibraryLoader::GetModuleHandleW(None).unwrap_or_default();
+        let wc = WNDCLASSW {
+            lpfnWndProc: Some(host_proc),
+            hInstance: hinst.into(),
+            lpszClassName: w!("SuppaBarHost"),
+            hCursor: LoadCursorW(None, IDC_ARROW).unwrap_or_default(),
+            ..Default::default()
+        };
+        RegisterClassW(&wc);
+        let mut rc = RECT::default();
+        let _ = GetClientRect(parent, &mut rc);
+        CreateWindowExW(
+            WINDOW_EX_STYLE(0),
+            w!("SuppaBarHost"),
+            w!(""),
+            WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+            0,
+            0,
+            rc.right,
+            rc.bottom,
+            Some(parent),
+            None,
+            Some(hinst.into()),
+            None,
+        )
+        .unwrap_or_default()
+    }
+}
+
+/// Creates the bar WebView (called once the WebView2 environment exists).
 pub fn create(env: &ICoreWebView2Environment, hwnd: HWND) {
+    let host = create_host(hwnd);
+    HOST.with(|h| h.set(host));
+    unsafe {
+        let _ = SetWindowPos(host, Some(HWND_BOTTOM), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+    crate::winbtn::init(hwnd);
     let handler = CreateCoreWebView2ControllerCompletedHandler::create(Box::new(move |res, ctrl| {
         if let (Ok(()), Some(c)) = (res, ctrl) {
             setup(c);
@@ -180,7 +241,7 @@ pub fn create(env: &ICoreWebView2Environment, hwnd: HWND) {
         Ok(())
     }));
     unsafe {
-        let _ = env.CreateCoreWebView2Controller(hwnd, &handler);
+        let _ = env.CreateCoreWebView2Controller(if host.is_invalid() { hwnd } else { host }, &handler);
     }
 }
 
@@ -306,18 +367,20 @@ pub fn screen_to_bar(pt: POINT) -> Option<(f64, f64)> {
         let _ = windows::Win32::Graphics::Gdi::ScreenToClient(hwnd, &mut p);
     }
     let inside = p.x >= rect.left && p.x < rect.right && p.y >= rect.top && p.y < rect.bottom;
+    // Not over the page (the bar lies behind it there).
+    let page = app::with(|s| content_rect(s)).unwrap_or_default();
+    let inside = inside && !(p.x >= page.left && p.x < page.right && p.y >= page.top && p.y < page.bottom);
     let scale = scale * z;
     inside.then(|| ((p.x - rect.left) as f64 / scale, (p.y - rect.top) as f64 / scale))
 }
 
 /// Screen point under the ≡ button (right edge of the bar) for notices.
 pub fn corner_anchor() -> POINT {
-    let Some((rc, h, bar_h, right, bottom)) =
-        app::with(|s| (bar_rect(s), s.hwnd, bar_height(s), scaled(12, s), scaled(s.settings.row_tabs + s.settings.row_nav - 4, s)))
-    else {
+    // Top-right corner of the page area.
+    let Some((rc, h, right)) = app::with(|s| (content_rect(s), s.hwnd, scaled(12, s))) else {
         return POINT::default();
     };
-    let mut pt = POINT { x: rc.right - right, y: rc.top + bar_h.min(bottom) };
+    let mut pt = POINT { x: rc.right - right, y: rc.top + right / 2 };
     unsafe {
         let _ = windows::Win32::Graphics::Gdi::ClientToScreen(h, &mut pt);
     }
@@ -341,7 +404,7 @@ fn post_json(json: String) {
     }
 }
 
-fn command_for(name: &str) -> Option<u16> {
+pub fn command_for(name: &str) -> Option<u16> {
     Some(match name {
         "new_tab" => CMD_NEW_TAB,
         "close_tab" => CMD_CLOSE_TAB,
@@ -484,10 +547,19 @@ fn on_message(json: &str) {
                 s.ui.dark = dark;
                 s.ui.bg = bg;
                 s.ui.border = border;
-                s.settings.dark = dark;
+                if s.settings.dark != dark {
+                    s.settings.set_dark(dark);
+                }
                 settings::save(&s.settings);
             });
             apply_window_theme(hwnd, dark);
+            crate::winbtn::refresh();
+            let host = HOST.with(|h| h.get());
+            if !host.is_invalid() {
+                unsafe {
+                    let _ = InvalidateRect(Some(host), None, true);
+                }
+            }
         }
         "focus_page" => focus_webview(),
         _ => {}
@@ -504,6 +576,9 @@ pub fn push_theme() {
             "colors": colors_json(st),
             "on_accent": st.on_accent,
             "order": st.row_order, "bar_pos": st.bar_pos, "side_width": st.side_width,
+            "pos": { "tabs": st.tabs_pos, "nav": st.nav_pos, "saved": st.saved_pos },
+            "tab_corners": st.tab_corners, "squircle": st.corner_shape == "squircle",
+            "theme": st.theme_name(), "icons": st.icon_pack,
         })
         .to_string()
     });
@@ -538,9 +613,62 @@ pub fn accent_for_bar(st: &crate::settings::Settings) -> String {
     if st.accent == "windows" { windows_accent() } else { st.accent.clone() }
 }
 
-/// Custom colours of the current theme as {"bg": "#101010", ...}.
-pub fn colors_json(st: &crate::settings::Settings) -> serde_json::Value {
+/// Custom colours of the current theme as {"bg": "#101010", ...} (Settings -> Colors).
+pub fn custom_colors_json(st: &crate::settings::Settings) -> serde_json::Value {
     serde_json::Value::Object(st.colors().iter().map(|(n, h)| (n.clone(), serde_json::Value::String(h.clone()))).collect())
+}
+
+/// Every interface colour as {"bg": "#101010", ...}: the theme (dark, darker,
+/// light, lighter), mixed with the tint colour, then the custom colours on top.
+/// The bar, menus and the Settings page all paint with these.
+pub fn colors_json(st: &crate::settings::Settings) -> serde_json::Value {
+    serde_json::Value::Object(palette(st).into_iter().map(|(n, h)| (n.to_string(), serde_json::Value::String(h))).collect())
+}
+
+const PALETTES: [(&str, [u32; 11]); 4] = [
+    //            bg        panel     field     btn       btn-hover tab       tab-fg    fg        muted     border    incognito
+    ("dark", [0x161616, 0x1f1f1f, 0x272727, 0x2e2e2e, 0x3b3b3b, 0x2e2e2e, 0x8e8e8e, 0xececec, 0x8e8e8e, 0x383838, 0x5b4a86]),
+    ("darker", [0x000000, 0x0c0c0c, 0x161616, 0x1c1c1c, 0x2a2a2a, 0x1c1c1c, 0x8a8a8a, 0xf2f2f2, 0x8a8a8a, 0x262626, 0x463a6e]),
+    ("light", [0xf2f2f2, 0xffffff, 0xffffff, 0xe5e5e5, 0xd8d8d8, 0xe5e5e5, 0x6b6b6b, 0x1c1c1c, 0x6b6b6b, 0xd0d0d0, 0x6f5aa8]),
+    ("lighter", [0xf8f8f8, 0xffffff, 0xf6f6f6, 0xf0f0f0, 0xe6e6e6, 0xececec, 0x707070, 0x111111, 0x707070, 0xe2e2e2, 0x7c66c2]),
+];
+
+/// See colors_json.
+pub fn palette(st: &crate::settings::Settings) -> Vec<(&'static str, String)> {
+    let theme = st.theme_name();
+    let base = PALETTES.iter().find(|(n, _)| *n == theme).map(|(_, p)| *p).unwrap_or(PALETTES[0].1);
+    let tint = u32::from_str_radix(st.tint.trim_start_matches('#'), 16).unwrap_or(0xff0000);
+    let amount = st.tint_amount.clamp(0, 100) as f64 / 100.0;
+    let mix = |c: u32, a: f64| -> String {
+        let ch = |shift: u32| {
+            let x = ((c >> shift) & 255) as f64;
+            let t = ((tint >> shift) & 255) as f64;
+            (x + (t - x) * a).round() as u32
+        };
+        format!("#{:02x}{:02x}{:02x}", ch(16), ch(8), ch(0))
+    };
+    let custom = st.colors();
+    let get = |n: &str| custom.iter().find(|(k, _)| k == n).map(|(_, h)| h.clone());
+    settings::COLOR_NAMES
+        .iter()
+        .zip(base)
+        .map(|(&name, c)| {
+            // Text is tinted less, so it stays easy to read.
+            let a = if matches!(name, "fg" | "muted" | "tab-fg") { amount * 0.35 } else { amount };
+            // Tabs follow a custom button / secondary text colour unless set themselves.
+            let own = get(name).or_else(|| match name {
+                "tab" => get("btn"),
+                "tab-fg" => get("muted"),
+                _ => None,
+            });
+            (name, own.unwrap_or_else(|| mix(c, a)))
+        })
+        .collect()
+}
+
+/// A palette colour as a COLORREF (for things Windows draws, e.g. the window buttons).
+pub fn palette_color(st: &crate::settings::Settings, name: &str) -> COLORREF {
+    palette(st).into_iter().find(|(n, _)| *n == name).and_then(|(_, h)| parse_hex(&h)).unwrap_or(rgb(0x80, 0x80, 0x80))
 }
 
 /// Update state of the ≡ button ("Update ≡" / "Building… ≡").
@@ -687,7 +815,23 @@ pub fn layout() {
         )
     });
     let Some((bar, bar_rc, bar_visible, page, page_rc, hwnd, bar_zoom)) = r else { return };
+    let host = HOST.with(|h| h.get());
     unsafe {
+        // The bar's window covers the whole window, under the page.
+        let bar_rc = if host.is_invalid() {
+            bar_rc
+        } else {
+            let _ = SetWindowPos(
+                host,
+                Some(HWND_BOTTOM),
+                0,
+                0,
+                bar_rc.right,
+                bar_rc.bottom,
+                SWP_NOACTIVATE | if bar_visible { SWP_SHOWWINDOW } else { SWP_HIDEWINDOW },
+            );
+            RECT { left: 0, top: 0, right: bar_rc.right, bottom: bar_rc.bottom }
+        };
         if let Some(b) = bar {
             let _ = b.SetBounds(bar_rc);
             let _ = b.SetIsVisible(bar_visible);
@@ -698,6 +842,7 @@ pub fn layout() {
         }
         let _ = InvalidateRect(Some(hwnd), None, true);
     }
+    crate::winbtn::layout();
 }
 
 pub fn on_dpi_changed(s: &mut app::State, dpi: u32) {

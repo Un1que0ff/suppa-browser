@@ -248,9 +248,33 @@ fn theme_json() -> (bool, String) {
 }
 
 /// Corner radius of menus/dialogs in CSS px: the roundness setting + 2 (0 = square).
+/// Squircle corners: 1.6 x bigger (like the bar, see ui.js).
 fn menu_radius() -> i32 {
     let r = app::with(|s| s.settings.radius).unwrap_or(10);
+    let r = if squircle() { (r as f64 * 1.6).round() as i32 } else { r };
     if r <= 0 { 0 } else { r + 2 }
+}
+
+fn squircle() -> bool {
+    app::with(|s| s.settings.corner_shape == "squircle").unwrap_or(false)
+}
+
+/// Window shape with squircle corners (superellipse, exponent 4), radius in px.
+unsafe fn squircle_region(w: i32, h: i32, r: f64) -> HRGN {
+    let r = r.min(w as f64 / 2.0).min(h as f64 / 2.0);
+    let mut pts = Vec::new();
+    // Corner centres, clockwise from top-right; each corner is a quarter of the curve.
+    let corners = [(w as f64 - r, r, 0.0), (w as f64 - r, h as f64 - r, 90.0), (r, h as f64 - r, 180.0), (r, r, 270.0)];
+    for (cx, cy, start) in corners {
+        for i in 0..=16 {
+            let t = (start - 90.0 + i as f64 * 90.0 / 16.0).to_radians();
+            let (c, s) = (t.cos(), t.sin());
+            let x = c.signum() * c.abs().sqrt() * r;
+            let y = s.signum() * s.abs().sqrt() * r;
+            pts.push(POINT { x: (cx + x).round() as i32, y: (cy + y).round() as i32 });
+        }
+    }
+    unsafe { CreatePolygonRgn(&pts, WINDING) }
 }
 
 /// Shows a menu. `anchor` is in screen pixels; `right` = the menu's right edge
@@ -295,6 +319,7 @@ fn show_ex(key: &str, items: Vec<Item>, anchor: POINT, right: bool, on_pick: Pic
     let msg = serde_json::json!({
         "type": "show", "items": items_json(&items), "dark": dark, "accent": accent,
         "radius": app::with(|s| s.settings.radius).unwrap_or(10),
+        "squircle": squircle(),
         "colors": app::with(|s| ui::colors_json(&s.settings)).unwrap_or_default(),
         "on_accent": app::with(|s| s.settings.on_accent.clone()).unwrap_or_default(),
     })
@@ -432,9 +457,13 @@ fn place(wc: f64, hc: f64) {
         if y + h > wa.bottom {
             y = if anchor.y - h >= wa.top { anchor.y - h } else { wa.bottom - h };
         }
-        // CreateRoundRectRgn takes the corner *diameter*: 2 x the CSS radius of the menu box.
-        let d = (2.0 * menu_radius() as f64 * scale).round() as i32;
-        let rgn = CreateRoundRectRgn(0, 0, w + 1, h + 1, d, d);
+        let rgn = if squircle() {
+            squircle_region(w, h, menu_radius() as f64 * scale)
+        } else {
+            // CreateRoundRectRgn takes the corner *diameter*: 2 x the CSS radius of the menu box.
+            let d = (2.0 * menu_radius() as f64 * scale).round() as i32;
+            CreateRoundRectRgn(0, 0, w + 1, h + 1, d, d)
+        };
         SetWindowRgn(hwnd, Some(rgn), true);
         let _ = SetWindowPos(hwnd, Some(HWND_TOP), x, y, w, h, SWP_SHOWWINDOW);
         if let Some(c) = &ctrl {

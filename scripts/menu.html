@@ -13,6 +13,7 @@
   }
   body.light { --panel: #ffffff; --hover: #ececec; --fg: #1c1c1c; --muted: #6b6b6b; --border: #d0d0d0; }
   * { box-sizing: border-box; }
+  body.squircle *, body.squircle *::before, body.squircle *::after { corner-shape: squircle; }
   /* Corner pixels between the window's cut and the drawn outline take the outline
      colour, so the rounded outline looks continuous all the way round. */
   html, body { margin: 0; background: var(--border); overflow: hidden; user-select: none; }
@@ -296,7 +297,9 @@ window.chrome.webview.addEventListener('message', (e) => {
     for (const [n, v] of [['panel', c.panel], ['hover', c['btn-hover']], ['fg', c.fg], ['muted', c.muted], ['border', c.border]]) {
       if (v) document.body.style.setProperty('--' + n, v); else document.body.style.removeProperty('--' + n);
     }
-    const rad = typeof msg.radius === 'number' ? msg.radius : 10;
+    // Squircle corners (Settings -> Corner style) are 1.6x bigger, like the bar and the window cut.
+    document.body.classList.toggle('squircle', !!msg.squircle);
+    const rad = Math.round((typeof msg.radius === 'number' ? msg.radius : 10) * (msg.squircle ? 1.6 : 1));
     document.documentElement.style.setProperty('--radius', rad + 'px');
     document.documentElement.style.setProperty('--r-menu', (rad > 0 ? rad + 2 : 0) + 'px');
     stack = [{ title: '', items: msg.items }];

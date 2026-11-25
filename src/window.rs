@@ -457,8 +457,9 @@ pub fn command(id: u16) {
         CMD_NEW_INCOGNITO => tabs::new_incognito(),
         CMD_TOGGLE_THEME => {
             app::with(|s| {
-                s.settings.dark = !s.settings.dark;
-                s.ui.dark = s.settings.dark;
+                let dark = !s.settings.dark;
+                s.settings.set_dark(dark);
+                s.ui.dark = dark;
                 settings::save(&s.settings);
             });
             ui::push_theme();

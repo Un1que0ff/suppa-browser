@@ -192,6 +192,8 @@ fn setup(id: u32, controller: ICoreWebView2Controller) {
         Some((rect, active && !minimized, pending, url, focus_addr))
     })
     .flatten();
+    // The new page window lands on top: keep the floating window buttons above it.
+    crate::winbtn::layout();
 
     let Some((rect, visible, pending, url, focus_addr)) = r else {
         // Tab was closed while the WebView was being created.

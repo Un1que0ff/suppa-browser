@@ -19,8 +19,8 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 - **Chrome extensions** - install from the Chrome Web Store with **Add to Suppa**, with buttons and popups next to the address bar.
 - **Tab groups** - drag a tab onto another and hold: they form a coloured, collapsible group.
 - **Saved tabs bar** with folders and drag & drop, a ☆ to save a site in one click.
-- **Your layout** - tabs, address bar and saved tabs at the top, the bottom, or as a column on the left/right, in any order.
-- **Your look** - dark/light, any accent colour (or the Windows accent), every interface colour, corner roundness, interface scale.
+- **Your layout** - put tabs, address bar and saved tabs each where you like: top, bottom, or a column on the left/right (e.g. address bar on top, tabs and saved tabs on the left).
+- **Your look** - darker / dark / light / lighter theme, a tint over the whole interface, any accent colour (or the Windows accent), every interface colour, round or squircle corners, which tab corners are rounded, five icon styles, interface scale.
 - **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark import.
 - **Hackable** - the whole interface is plain HTML/CSS/JS in a folder next to the exe; edit it and press **Update**.
 
@@ -112,10 +112,12 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - ≡ → *Extensions* lists them all (enable/disable, options, show in toolbar, remove) and can load an unpacked folder.
 
 ### Look and layout (Settings)
-- Dark / light theme; accent colour: rainbow per tab, 8 presets, any colour, or **the Windows accent colour**; text on accent: auto / black / white.
-- **Interface scale** 75–150 % (pages keep their own zoom), **corner roundness** 0–20 px.
+- **Theme**: darker (black), dark, light, lighter (white); **tint**: any colour over the whole interface, 0-60 % (e.g. dark with 20 % red). Accent colour: rainbow per tab, 8 presets, any colour, or **the Windows accent colour**; text on accent: auto / black / white.
+- **Interface scale** 75–150 % (pages keep their own zoom), **corner roundness** 0–20 px, **corner style** round or **squircle** (smooth superellipse corners everywhere, menus included).
+- **Tab corners**: choose which of the four corners of a tab are rounded (or Auto).
+- **Icon style**: Line, Bold, Sharp, Filled or Duotone (toolbar, saved tabs, window buttons).
 - **Pro settings → Colors**: every colour of the interface, per theme.
-- **Layout**: bar at the **top, bottom, left or right** (left/right = a column with vertical tabs; drag its edge to resize), and any **order** of tabs / address bar / saved tabs.
+- **Layout**: each row (tabs, address bar, saved tabs) at the **top, bottom, left or right**, or all at once; rows on the left/right share a column with vertical tabs (drag its edge to resize). Rows at the same edge follow the chosen **order**. With no row at the top the window buttons float over the top-right corner of the page.
 - Drag the thin line under a row to resize it; ≡ → *Lock bar sizes* prevents accidents.
 - The window has no Windows title bar - the tab row *is* the title bar (drag to move, double-click to maximize).
 
@@ -215,7 +217,8 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 | `src/main.rs` | Entry point and module list |
 | `src/app.rs` | Shared state, tabs, groups, command IDs |
 | `src/window.rs` | Main window, message loop, commands, layout of the frame, update/restart, crash recovery |
-| `src/ui.rs` | Hosts the HTML toolbar, bar/page layout (top/bottom/left/right), scale, theme |
+| `src/ui.rs` | Hosts the HTML toolbar, bar/page layout (each row top/bottom/left/right), scale, theme colours and tint |
+| `src/winbtn.rs` | Window buttons floating over the page when no row is at the top |
 | `src/tabs.rs` / `src/groups.rs` | Tabs (open, close, sort, detach) / tab groups |
 | `src/webview.rs` | WebView2 setup, page events, request interception, page context menus |
 | `src/adblock.rs` | Filter lists, network blocking, cosmetic CSS, scriptlets |

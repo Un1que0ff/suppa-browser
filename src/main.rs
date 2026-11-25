@@ -4,7 +4,8 @@
 //   main.rs        entry point
 //   app.rs         shared state, Tab struct, command / message IDs
 //   window.rs      main window, message loop, commands, fullscreen, Update/restart
-//   ui.rs          hosts the HTML top bar (scripts\ui.html), layout, frame, theme
+//   ui.rs          hosts the HTML bar (scripts\ui.html), layout, theme colours
+//   winbtn.rs      window buttons floating over the page (no bar row at the top)
 //   scripts.rs     the "scripts" folder next to Suppa.exe (UI, user scripts,
 //                  custom filters), change detection, restart
 //   tabs.rs        open / close / switch / navigate tabs
@@ -41,6 +42,7 @@ mod ui;
 mod util;
 mod webview;
 mod window;
+mod winbtn;
 
 fn main() {
     util::mark_start();

@@ -79,6 +79,14 @@ fn send_state(view: &WebView) {
             "ui_scale": st.ui_scale,
             "on_accent": st.on_accent,
             "bar_pos": st.bar_pos,
+            // One bar panel on Linux: every row is where the bar is.
+            "tabs_pos": st.bar_pos,
+            "nav_pos": st.bar_pos,
+            "saved_pos": st.bar_pos,
+            "theme": st.theme_name(),
+            "corner_shape": st.corner_shape,
+            "icon_pack": st.icon_pack,
+            "tab_corners": st.tab_corners,
             "row_order": st.row_order,
             "colors": ui::colors_json(st),
             "windows_accent": ui::system_accent(),
@@ -127,8 +135,30 @@ fn set(key: &str, v: &serde_json::Value) {
             }
             "search" => st.search = (n as usize).min(SEARCH_ENGINES.len() - 1),
             "dark" => {
-                st.dark = b;
+                st.set_dark(b);
                 theme_changed = true;
+            }
+            "theme" => {
+                st.set_theme(&text);
+                theme_changed = true;
+            }
+            "corner_shape" => {
+                st.corner_shape = settings::valid_corner_shape(&text);
+                theme_changed = true;
+            }
+            "icon_pack" => {
+                st.icon_pack = settings::valid_icon_pack(&text);
+                theme_changed = true;
+            }
+            "tab_corners" => {
+                st.tab_corners = settings::valid_tab_corners(&text);
+                theme_changed = true;
+            }
+            // Per-row places are Windows-only; on Linux the whole bar moves.
+            "row_pos" => {
+                st.set_bar_pos(v.get("pos").and_then(|x| x.as_str()).unwrap_or("top"));
+                theme_changed = true;
+                layout_changed = true;
             }
             "accent" => {
                 st.accent = settings::valid_accent(&text);
@@ -139,7 +169,7 @@ fn set(key: &str, v: &serde_json::Value) {
                 theme_changed = true;
             }
             "bar_pos" => {
-                st.bar_pos = settings::valid_bar_pos(&text);
+                st.set_bar_pos(&text);
                 theme_changed = true;
                 layout_changed = true;
             }

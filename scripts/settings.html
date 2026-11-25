@@ -38,7 +38,24 @@
     height: 30px; background: var(--field); color: var(--fg); border: 1px solid var(--border);
     border-radius: var(--r-btn); padding: 0 10px; font: inherit; outline: none;
   }
-  input:focus, select:focus { border-color: var(--accent); }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  input[type=range]:focus, input[type=color]:focus { box-shadow: none; }
+  body.squircle *, body.squircle *::before, body.squircle *::after { corner-shape: squircle; }
+  /* circles stay circles */
+  body.squircle .swatch, body.squircle .tabshape button, body.squircle .sw span::before,
+  body.squircle input[type=range]::-webkit-slider-thumb { corner-shape: round; }
+  /* button groups (theme, icon style, ...): the chosen one is accent */
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  /* Tab corners: a big tab with a clickable dot in each corner */
+  .tabshape { position: relative; width: 120px; height: 52px; display: grid; grid-template-columns: 1fr 1fr; }
+  .tabshape button {
+    position: relative; z-index: 1; width: 22px; height: 22px; padding: 0; border-radius: 50%; margin: 2px;
+    background: transparent; border: 2px dashed var(--muted);
+  }
+  .tabshape button:nth-child(even) { justify-self: end; }
+  .tabshape button:nth-child(n+3) { align-self: end; }
+  .tabshape button.on { border: 2px solid var(--accent); background: var(--accent); }
+  .tabprev { position: absolute; inset: 6px; background: var(--btn); border: 2px solid var(--accent); }
   input[type=number] { width: 80px; }
   #home-custom { width: 260px; }
   /* switch */
@@ -102,8 +119,19 @@
   <section>
     <h2>Appearance</h2>
     <div class="row">
-      <div class="label">Dark theme</div>
-      <label class="sw"><input type="checkbox" id="dark"><span></span></label>
+      <div class="label">Theme<small>Darker = black background, Lighter = white</small></div>
+      <div class="seg" id="theme">
+        <button data-v="darker">Darker</button>
+        <button data-v="dark">Dark</button>
+        <button data-v="light">Light</button>
+        <button data-v="lighter">Lighter</button>
+      </div>
+    </div>
+    <div class="row" data-win>
+      <div class="label">Tint<small>Colours the whole interface, e.g. dark theme with 20% red</small></div>
+      <input type="color" id="tint" title="Tint colour">
+      <input type="range" id="tint_amount" min="0" max="60" step="1">
+      <span id="tint_amount-val" class="muted" style="width:38px;text-align:right"></span>
     </div>
     <div class="row">
       <div class="label">Show saved tabs bar<small>Under the address bar; right-click a tab and choose "Save" to add it</small></div>
@@ -133,6 +161,32 @@
       <input type="range" id="radius" min="0" max="20" step="1">
       <span id="radius-val" class="muted" style="width:38px;text-align:right"></span>
     </div>
+    <div class="row">
+      <div class="label">Corner style<small>Squircle = smooth, Apple-like corners (superellipse) everywhere</small></div>
+      <div class="seg" id="corner_shape">
+        <button data-v="round">Round</button>
+        <button data-v="squircle">Squircle</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">Tab corners<small>Click the corners of the tab that should be rounded. Auto = the ones away from the page</small></div>
+      <div class="tabshape" id="tab-corners">
+        <button data-i="0" title="Top left"></button><button data-i="1" title="Top right"></button>
+        <button data-i="3" title="Bottom left"></button><button data-i="2" title="Bottom right"></button>
+        <div class="tabprev" id="tab-prev"></div>
+      </div>
+      <button class="reset" id="tab-corners-auto">Auto</button>
+    </div>
+    <div class="row">
+      <div class="label">Icon style<small>Toolbar, saved tabs and window buttons</small></div>
+      <div class="seg" id="icon_pack">
+        <button data-v="line" title="Line">Line</button>
+        <button data-v="bold" title="Bold">Bold</button>
+        <button data-v="sharp" title="Sharp">Sharp</button>
+        <button data-v="filled" title="Filled">Filled</button>
+        <button data-v="duotone" title="Duotone">Duotone</button>
+      </div>
+    </div>
   </section>
 
   <section>
@@ -146,7 +200,7 @@
   <section>
     <h2>Layout</h2>
     <div class="row">
-      <div class="label">Bar position<small>Tabs, address bar and saved tabs at the top, bottom, or as a column on the left or right</small></div>
+      <div class="label">Everything at<small>Puts tabs, address bar and saved tabs at one place. Below you can place each of them on its own</small></div>
       <div id="bar-pos" style="display:flex;gap:6px">
         <button data-v="top">Top</button>
         <button data-v="bottom">Bottom</button>
@@ -154,6 +208,7 @@
         <button data-v="right">Right</button>
       </div>
     </div>
+    <div id="row-pos"></div>
     <div class="row">
       <div class="label">Order of the rows<small>Use the arrows to move a row up or down</small><div id="row-order" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div></div>
       <button class="reset" id="order-reset">Default order</button>
@@ -334,12 +389,13 @@ function render() {
   document.body.classList.toggle('light', !S.dark);
   // Parts that only exist in Suppa for Windows (WebView2 features).
   document.querySelectorAll('[data-win]').forEach((e) => { e.style.display = S.platform === 'linux' ? 'none' : ''; });
-  applyColors(S.colors);
+  applyColors(S.palette || S.colors);
   const acc = S.accent === 'cycle' ? '#b07cff' : S.accent === 'windows' ? S.windows_accent : S.accent;
   document.body.style.setProperty('--accent', acc);
   document.body.style.setProperty('--on-accent', S.on_accent === 'black' ? '#1c1c1c' : S.on_accent === 'white' ? '#ffffff' : onColor(acc));
   document.querySelectorAll('#on-accent button').forEach((b) => b.classList.toggle('primary', b.dataset.v === (S.on_accent || 'auto')));
-  for (const k of ['dark', 'adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar']) $(k).checked = !!S[k];
+  for (const k of ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar']) $(k).checked = !!S[k];
+  renderLook();
   setRadius(S.radius, false);
   if (document.activeElement !== $('ui_scale')) $('ui_scale').value = S.ui_scale;
   $('ui_scale-val').textContent = S.ui_scale + '%';
@@ -457,8 +513,32 @@ document.querySelectorAll('#on-accent button').forEach((b) => b.addEventListener
 const ROW_NAMES = { tabs: 'Tabs', nav: 'Address bar', saved: 'Saved tabs' };
 document.querySelectorAll('#bar-pos button').forEach((b) => b.addEventListener('click', () => set('bar_pos', b.dataset.v)));
 $('order-reset').addEventListener('click', () => set('row_order', 'tabs,nav,saved'));
+const POS_NAMES = { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' };
 function renderLayout() {
-  document.querySelectorAll('#bar-pos button').forEach((b) => b.classList.toggle('primary', b.dataset.v === (S.bar_pos || 'top')));
+  const p = { tabs: S.tabs_pos || 'top', nav: S.nav_pos || 'top', saved: S.saved_pos || 'top' };
+  const all = p.tabs === p.nav && p.nav === p.saved ? p.tabs : '';
+  document.querySelectorAll('#bar-pos button').forEach((b) => b.classList.toggle('primary', b.dataset.v === all));
+  // One line per row: where it is.
+  const rp = $('row-pos');
+  rp.textContent = '';
+  for (const k of ['tabs', 'nav', 'saved']) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const lab = document.createElement('div');
+    lab.className = 'label';
+    lab.textContent = ROW_NAMES[k];
+    const seg = document.createElement('div');
+    seg.className = 'seg';
+    for (const v of ['top', 'bottom', 'left', 'right']) {
+      const b = document.createElement('button');
+      b.textContent = POS_NAMES[v];
+      b.classList.toggle('primary', p[k] === v);
+      b.onclick = () => set('row_pos', { row: k, pos: v });
+      seg.appendChild(b);
+    }
+    row.append(lab, seg);
+    rp.appendChild(row);
+  }
   const box = $('row-order');
   box.textContent = '';
   const order = S.row_order || ['tabs', 'nav', 'saved'];
@@ -494,14 +574,53 @@ function renderLayout() {
 function paintRange(el) {
   el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min));
 }
-for (const id of ['ui_scale', 'radius']) $(id).addEventListener('input', () => paintRange($(id)));
+for (const id of ['ui_scale', 'radius', 'tint_amount']) $(id).addEventListener('input', () => paintRange($(id)));
+
+// ---- Look: theme, tint, corner style, tab corners, icon style ----
+for (const id of ['theme', 'corner_shape', 'icon_pack']) {
+  $(id).querySelectorAll('button').forEach((b) => b.addEventListener('click', () => set(id, b.dataset.v)));
+}
+$('tint').addEventListener('input', () => {
+  clearTimeout($('tint').t);
+  $('tint').t = setTimeout(() => set('tint', $('tint').value), 80);
+});
+$('tint_amount').addEventListener('input', () => {
+  $('tint_amount-val').textContent = $('tint_amount').value + '%';
+  clearTimeout($('tint_amount').t);
+  $('tint_amount').t = setTimeout(() => set('tint_amount', Number($('tint_amount').value)), 80);
+});
+// Tab corners: four flags, top-left, top-right, bottom-right, bottom-left.
+function tabCorners() {
+  return /^[01]{4}$/.test(S.tab_corners || '') ? S.tab_corners : (S.tabs_pos === 'bottom' ? '0011' : S.tabs_pos === 'left' || S.tabs_pos === 'right' ? '1111' : '1100');
+}
+$('tab-corners').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+  const c = [...tabCorners()];
+  c[+b.dataset.i] = c[+b.dataset.i] === '1' ? '0' : '1';
+  set('tab_corners', c.join(''));
+}));
+$('tab-corners-auto').addEventListener('click', () => set('tab_corners', 'auto'));
+function renderLook() {
+  document.body.classList.toggle('squircle', S.corner_shape === 'squircle');
+  for (const id of ['theme', 'corner_shape', 'icon_pack']) {
+    $(id).querySelectorAll('button').forEach((b) => b.classList.toggle('primary', b.dataset.v === S[id]));
+  }
+  if (document.activeElement !== $('tint')) $('tint').value = S.tint || '#ff0000';
+  if (document.activeElement !== $('tint_amount')) $('tint_amount').value = S.tint_amount || 0;
+  $('tint_amount-val').textContent = (S.tint_amount || 0) + '%';
+  paintRange($('tint_amount'));
+  const c = tabCorners();
+  $('tab-corners').querySelectorAll('button').forEach((b) => b.classList.toggle('on', c[+b.dataset.i] === '1'));
+  $('tab-prev').style.borderRadius = [...c].map((x) => x === '1' ? '14px' : '0').join(' ');
+  $('tab-corners-auto').classList.toggle('primary', !/^[01]{4}$/.test(S.tab_corners || ''));
+}
 $('ui_scale').addEventListener('input', () => { $('ui_scale-val').textContent = $('ui_scale').value + '%'; });
 $('ui_scale').addEventListener('change', () => set('ui_scale', Number($('ui_scale').value)));
 $('ui_scale-reset').addEventListener('click', () => set('ui_scale', 100));
 
 // Corner roundness: live preview while dragging, sent to the browser (throttled).
 function setRadius(v, send) {
-  document.documentElement.style.setProperty('--radius', v + 'px');
+  // Squircle corners are 1.6x bigger (same as the bar and menus).
+  document.documentElement.style.setProperty('--radius', Math.round(v * (S.corner_shape === 'squircle' ? 1.6 : 1)) + 'px');
   if (document.activeElement !== $('radius')) $('radius').value = v;
   $('radius-val').textContent = v + ' px';
   if (send) {
@@ -515,7 +634,7 @@ window.chrome.webview.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'settings') { S = e.data; render(); }
 });
 
-for (const k of ['dark', 'adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar']) {
+for (const k of ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar']) {
   $(k).addEventListener('change', () => set(k, $(k).checked));
 }
 for (const k of ['sleep', 'discard']) $(k).addEventListener('change', () => set(k, Number($(k).value) || 0));

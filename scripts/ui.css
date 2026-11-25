@@ -16,7 +16,17 @@
   --r-btn: max(0px, calc(var(--radius) - 1px));
   --r-sm: max(0px, calc(var(--radius) - 2px));
   --r-xs: max(0px, calc(var(--radius) - 3px));
+  /* Icon style (Settings -> Icon style): line width, ends, corners, and how
+     shapes marked class="f" are filled. */
+  --ic-w: 1.6; --ic-cap: round; --ic-join: round; --ic-fill: none; --ic-fo: 1; --ic-win: 1;
 }
+body.ic-bold { --ic-w: 2.3; --ic-win: 1.5; }
+body.ic-sharp { --ic-w: 1.7; --ic-cap: square; --ic-join: miter; }
+body.ic-filled { --ic-w: 1.8; --ic-fill: currentColor; --ic-win: 1.3; }
+body.ic-duotone { --ic-w: 1.7; --ic-fill: currentColor; --ic-fo: .3; --ic-win: 1.2; }
+/* Settings -> Corner style -> Squircle: smooth "superellipse" corners everywhere. */
+body.squircle *, body.squircle *::before, body.squircle *::after { corner-shape: squircle; }
+body.squircle .tab .x, body.squircle .tab .spin { corner-shape: round; }   /* circles stay circles */
 body.light {
   --bg: #f2f2f2; --panel: #ffffff; --field: #ffffff; --btn: #e5e5e5; --btn-hover: #d8d8d8;
   --fg: #1c1c1c; --muted: #6b6b6b; --border: #d0d0d0; --trough: #dcdcdc; --incognito: #6f5aa8;
@@ -32,7 +42,10 @@ html, body {
   font: 600 10pt "Segoe UI", system-ui, sans-serif;
 }
 svg { display: block; }
-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+button svg, .ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: var(--ic-w); stroke-linecap: var(--ic-cap); stroke-linejoin: var(--ic-join); }
+svg .f { fill: var(--ic-fill); fill-opacity: var(--ic-fo); }
+/* duotone only: soft fill (e.g. the globe) */
+body.ic-duotone svg .d { fill: currentColor; fill-opacity: .3; }
 
 /* ---------- row 1: tabs (this is the title bar) ---------- */
 /* Row positions (--t-tabs / --t-nav / --t-saved) are set by ui.js from the
@@ -116,39 +129,38 @@ body.tabs-below .gchip { margin: 3px 3px 0 0; }
 .tab.gcollapsed { display: none; }
 /* dragging a tab and holding it over another one: they will be grouped */
 .tab.group-target { outline: 2px solid var(--gt, var(--accent)); outline-offset: -2px; }
-body.side .gchip { height: 28px; margin: 4px 0; max-width: none; }
 
-/* window buttons (minimize / maximize / close), like Windows */
-#winctl { display: flex; align-self: flex-start; height: min(32px, var(--row1)); flex: 0 0 auto; }
-#winctl button {
-  width: 46px; height: 100%; border: none; border-radius: 0; background: transparent; color: var(--fg);
-  padding: 0; display: inline-flex; align-items: center; justify-content: center;
-}
-#winctl button svg { display: block; pointer-events: none; }
-#winctl button:hover { background: var(--btn-hover); }
-#winctl #close:hover { background: #e81123; color: #fff; }
-/* Tabs not on the top row: the window buttons sit at the right end of the top
-   row, in a rounded island so they stand out from the toolbar. */
-#winctl.island {
-  align-self: center; height: var(--ctl); margin-left: 6px; overflow: hidden;
+/* Window buttons (minimize / maximize / close): one rounded island in the
+   interface colours, at the right end of the top row. (With no row at the top
+   Suppa draws the same island itself, floating over the page.) */
+#winctl {
+  display: flex; flex: 0 0 auto; align-self: center; height: min(30px, calc(var(--row1) - 8px));
+  margin: 0 8px 0 6px; overflow: hidden;
   background: var(--btn); border: 1px solid var(--border); border-radius: var(--r-btn);
 }
-#winctl.island button { width: 40px; }
-#row3 #winctl.island { height: calc(var(--row3) - 6px); }
+#winctl button {
+  width: 40px; height: 100%; border: none; border-radius: 0; background: transparent; color: var(--fg);
+  padding: 0; display: inline-flex; align-items: center; justify-content: center;
+}
+#winctl button svg { display: block; pointer-events: none; stroke-width: var(--ic-win); }
+#winctl button:hover { background: var(--btn-hover); }
+#winctl #close:hover { background: #e81123; color: #fff; }
+#row2 #winctl { height: var(--ctl); margin-right: 0; }
+#row3 #winctl { height: calc(var(--row3) - 6px); margin-right: 0; }
+body.tabs-below #row1 #winctl { align-self: center; }
+#winctl.away { display: none; }
 
 /* resize handles on the top edge (hidden when maximized) */
 .grip { position: absolute; top: 0; height: 5px; z-index: 10; }
 #grip-top { left: 8px; right: 8px; cursor: n-resize; }
 #grip-tl { left: 0; width: 8px; cursor: nw-resize; }
 #grip-tr { right: 0; width: 8px; cursor: ne-resize; }
-body.max .grip, body.bar-bottom .grip { display: none; }
+body.max .grip { display: none; }
 
-#frame-top { display: none; }
-/* line between the bar and the page (above the bar when it is at the bottom) */
-body::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--border); z-index: 4;
-}
-body.bar-bottom::after { top: 0; bottom: auto; }
+#frame-top, #shead { display: none; }
+/* Where the page is (the page window covers it); its outline is the line
+   between the bar rows and the page. */
+#hole { position: absolute; outline: 1px solid var(--border); pointer-events: none; z-index: 4; }
 
 /* ---------- row 2: navigation + address bar ---------- */
 #row2 {
@@ -159,7 +171,8 @@ body.bar-bottom::after { top: 0; bottom: auto; }
   flex: 1 1 auto; height: var(--ctl); min-width: 50px; display: flex; align-items: center;
   background: var(--field); border: 1px solid var(--border); border-radius: var(--r-btn); overflow: hidden;
 }
-#addr-box:focus-within { border-color: var(--accent); }
+/* Accent outlines are 2px everywhere (1px border + 1px inner ring, so nothing moves). */
+#addr-box:focus-within { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 #addr {
   flex: 1 1 auto; height: 100%; min-width: 0; background: transparent; color: var(--fg); border: none;
   padding: 0 12px; font: 400 10pt "Segoe UI", system-ui, sans-serif; outline: none; user-select: text;
@@ -221,61 +234,60 @@ body.saved #row3 { display: flex; }
   background: var(--btn); border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,.35);
 }
 input.rename {
-  height: 22px; width: 150px; background: var(--field); color: var(--fg); border: 1px solid var(--accent);
+  height: 22px; width: 150px; background: var(--field); color: var(--fg); border: 2px solid var(--accent);
   border-radius: var(--r-xs); padding: 0 6px; font: 400 10pt "Segoe UI", system-ui, sans-serif; outline: none;
 }
 
 /* ---------- row resize handles (thin lines under each row) ---------- */
 .sizer { position: absolute; left: 0; right: 0; height: 5px; z-index: 5; cursor: ns-resize; }
 .sizer:hover, .sizer.on { background: var(--accent); opacity: .5; }
-/* each line sits on the lower edge of its row (rows can be in any order) */
-#sz-tabs { top: calc(var(--t-tabs, 0px) + var(--row1) - 3px); }
-#sz-nav { top: calc(var(--t-nav, 40px) + var(--row2) - 3px); }
-#sz-saved { top: calc(var(--t-saved, 86px) + var(--row3) - 3px); display: none; }
-body.saved #sz-saved { display: block; }
-/* Locked (≡ -> Lock bar sizes): no handles at all - !important beats the #sz-saved rule above. */
+/* Each line sits on the page side of its row (placed by ui.js); hidden for rows in a column. */
+.sizer.off { display: none; }
+/* Locked (≡ -> Lock bar sizes): no handles at all. */
 body.locked .sizer { display: none !important; }
 
-/* ---------- bar on the left / right: one column (Settings -> Layout) ----------
-   Sections stack top to bottom in the chosen order; the tab list takes the
-   free height and scrolls. */
-#shead, #sz-side { display: none; }
-body.side { display: flex; flex-direction: column; }
-body.side #shead {
-  display: flex; flex: 0 0 auto; height: 40px; align-items: center; justify-content: flex-end;
-  padding: 0 8px; background: var(--bg); box-shadow: inset 0 -1px var(--border);
+/* ---------- rows at the left / right edge: a column (Settings -> Layout) ----------
+   Rows stack top to bottom in the chosen order; the tab list takes the free
+   height and scrolls. */
+.col {
+  position: absolute; display: none; flex-direction: column; width: var(--side-w, 260px);
+  background: var(--bg); overflow: hidden;
 }
-body.side #row1, body.side #row2, body.side #row3 { position: static; height: auto; box-shadow: none; }
-body.side #row1 {
+.col.on { display: flex; }
+#colL { left: 0; }
+#colR { right: 0; }
+.col .sz-col { position: absolute; top: 0; bottom: 0; width: 5px; height: auto; cursor: ew-resize; z-index: 6; }
+#colL .sz-col { right: 0; }
+#colR .sz-col { left: 0; }
+.col #row1, .col #row2, .col #row3 { position: static; height: auto; box-shadow: none; }
+.col #row1 {
   order: var(--o-tabs); flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
   flex-direction: column; align-items: stretch; padding: 8px; background: var(--bg);
 }
-body.side #tabs { flex-direction: column; align-items: stretch; height: auto; overflow: visible; flex: 0 0 auto; }
-body.side .tab, body.side .tab.active {
+.col #tabs { flex-direction: column; align-items: stretch; height: auto; overflow: visible; flex: 0 0 auto; }
+.col .tab, .col .tab.active {
   width: auto !important; height: 34px; margin: 0 0 4px 0; border-radius: var(--r-btn); flex: 0 0 auto;
 }
-body.side #newtab { width: 100%; height: 30px; margin: 2px 0 0 0; }
-body.side #drag { display: none; }
-body.side #row2 {
+.col #newtab { width: 100%; height: 30px; margin: 2px 0 0 0; }
+.col #drag { display: none; }
+.col .gchip { height: 28px; margin: 4px 0; max-width: none; }
+.col #row2 {
   order: var(--o-nav); flex: 0 0 auto; flex-wrap: wrap; padding: 8px; row-gap: 8px;
   box-shadow: inset 0 -1px var(--border);
 }
-body.side #addr-box { order: 99; flex: 1 1 100%; }      /* address on its own line */
-body.side #exts { margin-left: auto; }
-body.side #row3 {
-  order: var(--o-saved); flex: 0 1 auto; max-height: 40%; overflow-y: auto; padding: 6px 8px;
+.col #addr-box { order: 99; flex: 1 1 100%; }      /* address on its own line */
+.col #exts { margin-left: auto; }
+.col #row3 {
+  order: var(--o-saved); flex: 0 1 auto; max-height: 45%; overflow-y: auto; padding: 6px 8px;
   flex-direction: column; align-items: stretch; box-shadow: inset 0 -1px var(--border);
 }
-body.side #saved { flex-direction: column; align-items: stretch; height: auto; gap: 2px; overflow: visible; }
-body.side .saved-item { max-width: none; height: 30px; flex: 0 0 auto; }
-body.side .sizer { display: none; }
-body.side #sz-side { display: block; position: absolute; top: 0; bottom: 0; width: 5px; height: auto; cursor: ew-resize; z-index: 6; }
-body.side-left #sz-side { right: 0; }
-body.side-right #sz-side { left: 0; }
-body.side.locked #sz-side { display: none; }
-/* line between the column and the page */
-body.side::after { top: 0; bottom: 0; width: 1px; height: auto; left: auto; right: 0; }
-body.side-right::after { left: 0; right: auto; }
+.col #saved { flex-direction: column; align-items: stretch; height: auto; gap: 2px; overflow: visible; }
+.col .saved-item { max-width: none; height: 30px; flex: 0 0 auto; }
+/* The tab list fills the column; without it the last section does. */
+.col:not(:has(#row1)) > :last-child { flex: 1 1 auto; max-height: none; }
+
+/* Settings -> Tab corners: only the chosen corners are rounded. */
+body.tab-corners .tab, body.tab-corners .col .tab { border-radius: var(--tab-r) !important; }
 
 /* ---------- buttons (same look as the Qt app) ---------- */
 button {
@@ -289,7 +301,7 @@ button.nav { width: calc(var(--ctl) + 2px); height: var(--ctl); padding: 0; disp
 #menu { height: var(--ctl); padding: 0 9px; display: flex; align-items: center; justify-content: center; gap: 6px; }
 #menu .upd { display: none; }
 /* "Update ≡": changes are waiting (scripts folder or Rust code) */
-#menu.hot { background: transparent; color: var(--accent); border-color: var(--accent); font-weight: 600; }
+#menu.hot { background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
 #menu.hot .upd, #menu.busy .upd { display: inline; }
 #menu.hot:hover { background: var(--accent); color: var(--on-accent); }
 #menu.busy { color: var(--muted); }

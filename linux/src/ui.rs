@@ -276,6 +276,9 @@ pub fn push_theme() {
             "colors": colors_json(st),
             "on_accent": st.on_accent,
             "order": st.row_order, "bar_pos": st.bar_pos, "side_width": st.side_width,
+            // Linux: one bar panel (all rows at bar_pos), window buttons stay in it.
+            "native_buttons": false,
+            "squircle": st.corner_shape == "squircle", "icons": st.icon_pack, "tab_corners": st.tab_corners,
         })
         .to_string()
     });

@@ -1,12 +1,14 @@
 // SuppaSetup.exe - installs Suppa Browser for the current Windows user.
 //
-//   SuppaSetup.exe               install / update (asks first)
-//   SuppaSetup.exe /S            install / update silently
+//   SuppaSetup.exe               install (choose the folder, desktop shortcut or not),
+//                                or, when Suppa is installed: update or uninstall it
+//   SuppaSetup.exe /S            install / update silently (/D=<folder> picks the folder)
 //   SuppaSetup.exe --uninstall   remove (used by Windows "Apps": the setup copies
 //                                itself next to Suppa.exe for that)
 //
-// Installs to %LOCALAPPDATA%\Programs\Suppa (no admin rights needed), adds
-// Start-menu + desktop shortcuts and an entry in Settings -> Apps. If the
+// Installs to %LOCALAPPDATA%\Programs\Suppa by default (no admin rights needed),
+// adds a Start-menu shortcut (and a desktop one if wanted) and an entry in
+// Settings -> Apps. If the
 // Microsoft Edge WebView2 Runtime is missing, it offers to install it.
 // Its window is drawn in Suppa's own style (see ui.rs).
 #![windows_subsystem = "windows"]
@@ -56,7 +58,7 @@ fn main() {
         // Pictures of the setup's screens (for checking the look), no installing.
         let out = PathBuf::from(args.get(i + 1).cloned().unwrap_or_else(|| "preview".into()));
         let _ = std::fs::create_dir_all(&out);
-        let dir = install_dir();
+        let dir = default_dir();
         ui::preview(
             &out.join("1-install.bmp"),
             &format!("Install Suppa {VERSION}"),
@@ -70,7 +72,53 @@ fn main() {
         return;
     }
     let removing = args.iter().any(|a| a == "--uninstall" || a.eq_ignore_ascii_case("/uninstall"));
-    let result = if removing { uninstall(silent) } else { install(silent) };
+    let folder = args.iter().find_map(|a| a.strip_prefix("/D=").or_else(|| a.strip_prefix("--dir="))).map(PathBuf::from);
+    let result = if removing {
+        // Run from the copy next to Suppa.exe (Settings -> Apps): remove that folder.
+        let here = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)).filter(|d| d.join("Suppa.exe").exists());
+        match here.or_else(installed_dir) {
+            Some(dir) => uninstall(&dir, silent),
+            None => Err("Suppa is not installed.".into()),
+        }
+    } else if silent {
+        let dir = folder.or_else(installed_dir).unwrap_or_else(default_dir);
+        let desktop = !dir.join("Suppa.exe").exists() || has_desktop_shortcut();
+        install(&dir, desktop, true)
+    } else if let Some(dir) = installed_dir() {
+        // Already installed: update it, or uninstall it.
+        let cur = installed_version().unwrap_or_else(|| "an older version".into());
+        let same = cur == VERSION;
+        let update = if same { format!("Reinstall {VERSION}") } else { format!("Update to {VERSION}") };
+        let text = format!(
+            "Suppa {cur} is installed in\n{}\n\n{} Your tabs, settings, passwords and saved tabs are kept.",
+            dir.display(),
+            if same { "This is the newest version; you can install it again to repair it." } else { "Update it to the new version, or remove it from this PC." },
+        );
+        match ui::dialog(&window_title(), &format!("Suppa {cur} is installed"), &text, &[&update, "Uninstall", "Cancel"], 0) {
+            Some(0) => install(&dir, has_desktop_shortcut(), false),
+            Some(1) => uninstall(&dir, false),
+            _ => Ok(()),
+        }
+    } else {
+        // New install: where, and a desktop shortcut or not.
+        let start = default_dir();
+        let text = "Choose the folder for Suppa. In your user folder (the default) no administrator rights are needed.\nA Start-menu shortcut is added; you can remove Suppa any time in Windows Settings \u{2192} Apps.";
+        let (choice, dir, checks) = ui::form(
+            &window_title(),
+            &format!("Install Suppa {VERSION}"),
+            text,
+            Some(&start.display().to_string()),
+            &[("Add a shortcut to the desktop", true)],
+            &["Install", "Cancel"],
+            0,
+        );
+        if choice == Some(0) {
+            let dir = dir.map(PathBuf::from).unwrap_or(start);
+            install(&dir, checks.first().copied().unwrap_or(true), false)
+        } else {
+            Ok(())
+        }
+    };
     if let Err(e) = result {
         if !silent {
             let what = if removing { "Suppa could not be removed" } else { "Suppa could not be installed" };
@@ -96,8 +144,37 @@ fn env_path(var: &str) -> PathBuf {
     PathBuf::from(std::env::var_os(var).unwrap_or_default())
 }
 
-fn install_dir() -> PathBuf {
+/// Where a new install goes unless another folder is chosen.
+fn default_dir() -> PathBuf {
     env_path("LOCALAPPDATA").join("Programs").join("Suppa")
+}
+
+/// Folder of the installed Suppa (from Settings -> Apps), if it is there.
+fn installed_dir() -> Option<PathBuf> {
+    let reg = reg_get(HKEY_CURRENT_USER, UNINSTALL_KEY, "InstallLocation").map(PathBuf::from);
+    reg.into_iter().chain(Some(default_dir())).find(|d| d.join("Suppa.exe").exists())
+}
+
+fn installed_version() -> Option<String> {
+    reg_get(HKEY_CURRENT_USER, UNINSTALL_KEY, "DisplayVersion")
+}
+
+fn desktop_shortcut() -> Option<PathBuf> {
+    known_folder(&FOLDERID_Desktop).map(|d| d.join(format!("{APP}.lnk")))
+}
+
+fn has_desktop_shortcut() -> bool {
+    desktop_shortcut().is_some_and(|p| p.exists())
+}
+
+fn reg_get(root: HKEY, path: &str, name: &str) -> Option<String> {
+    unsafe {
+        let mut buf = [0u16; 1024];
+        let mut size = (buf.len() * 2) as u32;
+        RegGetValueW(root, &HSTRING::from(path), &HSTRING::from(name), RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr() as *mut _), Some(&mut size)).ok().ok()?;
+        let n = (size as usize / 2).saturating_sub(1);
+        Some(String::from_utf16_lossy(&buf[..n])).filter(|s| !s.is_empty())
+    }
 }
 
 fn known_folder(id: &windows::core::GUID) -> Option<PathBuf> {
@@ -109,13 +186,14 @@ fn known_folder(id: &windows::core::GUID) -> Option<PathBuf> {
     }
 }
 
-fn shortcut_paths() -> Vec<PathBuf> {
+/// Start-menu shortcut (+ the desktop one).
+fn shortcut_paths(desktop: bool) -> Vec<PathBuf> {
     let mut v = Vec::new();
     if let Some(p) = known_folder(&FOLDERID_Programs) {
         v.push(p.join(format!("{APP}.lnk")));
     }
-    if let Some(d) = known_folder(&FOLDERID_Desktop) {
-        v.push(d.join(format!("{APP}.lnk")));
+    if desktop {
+        v.extend(desktop_shortcut());
     }
     v
 }
@@ -261,36 +339,13 @@ fn install_webview2() -> Result<(), String> {
 
 // ---- install ---------------------------------------------------------------------------
 
-fn install(silent: bool) -> Result<(), String> {
-    let dir = install_dir();
+/// Installs (or updates) Suppa in `dir`. `desktop`: add a desktop shortcut
+/// (false removes one that is there).
+fn install(dir: &Path, desktop: bool, silent: bool) -> Result<(), String> {
+    let dir = dir.to_path_buf();
     let exe = dir.join("Suppa.exe");
     let updating = exe.exists();
     let wt = window_title();
-    if !silent {
-        let go = if updating {
-            ask(
-                &format!("Update to Suppa {VERSION}"),
-                "Suppa closes for a moment while it is updated. Your tabs, settings, passwords and saved tabs are kept.",
-                "Update",
-                "Cancel",
-                true,
-            )
-        } else {
-            ask(
-                &format!("Install Suppa {VERSION}"),
-                &format!(
-                    "Suppa is installed for your Windows account only, no administrator rights needed:\n{}\n\nA Start-menu and a desktop shortcut are added. You can remove it any time in Windows Settings \u{2192} Apps.",
-                    dir.display()
-                ),
-                "Install",
-                "Cancel",
-                true,
-            )
-        };
-        if !go {
-            return Ok(());
-        }
-    }
 
     // WebView2 (the engine that shows web pages) - part of up-to-date Windows.
     if !webview2_installed() {
@@ -332,11 +387,16 @@ fn install(silent: bool) -> Result<(), String> {
                 let _ = std::fs::copy(&me, &setup_copy);
             }
         }
-        for lnk in shortcut_paths() {
+        for lnk in shortcut_paths(desktop) {
             if let Some(p) = lnk.parent() {
                 let _ = std::fs::create_dir_all(p);
             }
             let _ = make_shortcut(&lnk, &exe, &dir);
+        }
+        if !desktop {
+            if let Some(d) = desktop_shortcut() {
+                let _ = std::fs::remove_file(d);
+            }
         }
         // Settings -> Apps entry
         let size_kb = (SUPPA_EXE.len() + FILES.iter().map(|(_, b)| b.len()).sum::<usize>()) / 1024;
@@ -368,7 +428,7 @@ fn install(silent: bool) -> Result<(), String> {
     let (t, x) = if updating {
         (format!("Suppa is updated to {VERSION}"), "Everything you had open is restored when it starts.".to_string())
     } else {
-        (format!("Suppa {VERSION} is installed"), "Find it in the Start menu or on your desktop.".to_string())
+        (format!("Suppa {VERSION} is installed"), if desktop { "Find it in the Start menu or on your desktop." } else { "Find it in the Start menu." }.to_string())
     };
     if ask(&t, &x, "Start Suppa", "Close", true) {
         ui::hide();
@@ -379,36 +439,30 @@ fn install(silent: bool) -> Result<(), String> {
 
 // ---- uninstall -------------------------------------------------------------------------
 
-fn uninstall(silent: bool) -> Result<(), String> {
-    let dir = install_dir();
+/// Removes Suppa from `dir`: with its data (settings, tabs, passwords...) or keeping it.
+fn uninstall(dir: &Path, silent: bool) -> Result<(), String> {
+    let dir = dir.to_path_buf();
     let wt = window_title();
-    if !silent
-        && !ask(
-            "Remove Suppa?",
-            "Suppa, its shortcuts and its default-browser registration are removed from this PC.",
-            "Remove",
-            "Cancel",
-            false,
-        )
-    {
-        return Ok(());
-    }
     let data = env_path("LOCALAPPDATA").join("SuppaBrowser");
-    let delete_data = !silent
-        && data.exists()
-        && ask(
-            "Also delete your Suppa data?",
-            "Settings, saved tabs, open tabs, passwords, history and extensions.\n\nKeep them if you may install Suppa again later.",
-            "Delete data",
-            "Keep data",
-            false,
+    let delete_data = if silent {
+        false
+    } else {
+        let text = format!(
+            "Suppa, its shortcuts and its default-browser registration are removed from\n{}\n\nKeep your settings, saved tabs, open tabs, passwords and extensions if you may install Suppa again later, or remove everything.",
+            dir.display()
         );
+        match ui::dialog(&wt, "Remove Suppa?", &text, &["Remove, keep settings", "Remove everything", "Cancel"], 0) {
+            Some(0) => false,
+            Some(1) => true,
+            _ => return Ok(()),
+        }
+    };
 
     let work = || -> Result<(), String> {
         if !close_suppa(&dir) {
             return Err("Suppa is still open. Close it and try again.".into());
         }
-        for lnk in shortcut_paths() {
+        for lnk in shortcut_paths(true) {
             let _ = std::fs::remove_file(lnk);
         }
         unsafe {
@@ -421,20 +475,18 @@ fn uninstall(silent: bool) -> Result<(), String> {
         if delete_data {
             let _ = std::fs::remove_dir_all(&data);
         }
-        // Remove the files now, except this running setup...
-        if let Ok(rd) = std::fs::read_dir(&dir) {
-            for e in rd.flatten() {
-                let p = e.path();
-                if p.file_name().is_some_and(|n| n.eq_ignore_ascii_case("SuppaSetup.exe")) {
-                    continue;
-                }
-                let _ = if p.is_dir() { std::fs::remove_dir_all(&p) } else { std::fs::remove_file(&p) };
-            }
+        // Remove Suppa's own files now (never anything else that may be in the
+        // chosen folder), except this running setup...
+        let _ = std::fs::remove_file(dir.join("Suppa.exe"));
+        let _ = std::fs::remove_dir_all(dir.join("scripts"));
+        for (rel, _) in FILES {
+            let _ = std::fs::remove_file(dir.join(rel.replace('/', "\\")));
         }
-        // ...which deletes its folder a moment after it exits.
+        // ...which deletes itself and the folder (only if empty) a moment after it exits.
         use std::os::windows::process::CommandExt;
+        let setup = dir.join("SuppaSetup.exe");
         let _ = std::process::Command::new("cmd")
-            .raw_arg(format!("/c ping 127.0.0.1 -n 3 >nul & rmdir /s /q \"{}\"", dir.display()))
+            .raw_arg(format!("/c ping 127.0.0.1 -n 3 >nul & del /f /q \"{}\" & rmdir \"{}\"", setup.display(), dir.display()))
             .creation_flags(0x0800_0000) // no console window
             .spawn();
         Ok(())
