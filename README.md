@@ -1,6 +1,6 @@
 # Suppa Browser
 
-**A tiny, fast, private web browser for Windows (and now Linux and Android) - a single 3 MB `.exe` with a built-in ad blocker, Chrome extensions, tab groups and a fully customisable interface.**
+**A tiny, fast, private web browser for Windows (and now Linux) - a single 3 MB `.exe` with a built-in ad blocker, Chrome extensions, tab groups and a fully customisable interface.**
 
 Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is already part of Windows 10/11 - so pages render exactly like in Chrome/Edge, while Suppa itself stays very small.
 
@@ -211,28 +211,6 @@ It installs for your user only (no root): the program in `~/.local/share/suppa-b
 
 Not in the Linux version (yet): Chrome extensions (WebKitGTK has no extension support), saved passwords and form filling, history and downloads pages, updates, backup and bookmark import, the setup program, and freezing background tabs (they are unloaded after the set time instead). On Wayland desktops Suppa runs through XWayland so its menus can be placed exactly.
 
-### Android
-
-Suppa for Android is the same browser on a phone, on top of **Android System WebView** (the Chromium engine that Chrome uses). It uses the same `scripts` folder, so the address bar, menus, Settings, History, Downloads, the start page, themes, tint, accent, custom colours, corners and icon styles look and work the same, made for fingers.
-
-What is different on a phone:
-
-- **Tabs have their own screen.** The tabs button next to the address bar (it shows how many tabs are open) opens every tab as a **tile with a picture of its page**, like Chrome. Tap = switch, **×** or **swipe sideways** = close, **long press** = menu (save, share, duplicate, close others, groups), **long press and move** = sort, **drag onto another tile and hold** = tab group. Normal and incognito tabs are two pages of that screen; long press the tabs button for a new tab, a new incognito tab or to close the tab.
-- **Bookmarks are in ≡ -> Bookmarks**: their own popup with folders and site icons; long press an item to open it in a new or incognito tab, rename or delete it, drag to sort. ☆ in the address bar saves the page. (Settings -> Layout can still show them as a bar.)
-- **Address bar at the top or the bottom** (Settings -> Layout). Back is the phone's back gesture; Forward and Reload are in ≡ (wider screens show the buttons).
-- Long press a link or image for open in new / background / incognito tab, copy, share, download.
-- Also in ≡: find in page, share, desktop site, text size, print, full screen.
-
-Same as on Windows: the ad and tracker blocker (the same filter lists plus your own rules; scriptlets and procedural uBlock rules are not supported on Android), the YouTube ad skipper, cookie-popup handling, incognito tabs (their own cookie store, deleted when the last one closes), tab groups, sleeping tabs, crash recovery, history and the start page's most-used sites, downloads with the filling download button, **saved passwords** (encrypted with a key that never leaves the phone; showing, copying and exporting ask for your fingerprint, face or screen lock; import and export `.csv`), backup and restore, bookmark import from an `.html` file, default browser, updates from GitHub with **What's new**, and your own scripts: files in `Android/data/com.suppa.browser/files/scripts` replace the built-in ones (Settings -> Update and files -> Copy files), and the ≡ button becomes **Update ≡** when they change.
-
-Not on Android: Chrome extensions (Android's WebView has no extension support).
-
-**Requirements:** Android 10 or newer with an up-to-date Android System WebView.
-
-**Install:** get `Suppa-<version>-android.apk` from the [Releases](../../releases) page and open it on the phone (Android asks to allow installing apps from your browser or file manager once).
-
-**Build it yourself:** double-click **`android\build.bat`**. It installs what is missing into `%LOCALAPPDATA%\SuppaAndroidTools` (Java 17, the Android SDK, Gradle; no administrator rights), creates your own signing key once in `%LOCALAPPDATA%\SuppaBrowser-android` (keep it: Android only installs an update over Suppa when it is signed with the same key) and builds `dist\Suppa-<version>-android.apk`. The app's version is the one in `Cargo.toml`.
-
 ---
 
 ## Customise without recompiling
@@ -283,7 +261,6 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 | `build.rs` | Embeds the manifest and draws the icon from `assets/icon.svg` |
 | `installer/` | `SuppaSetup.exe`: install, update and uninstall, in a window drawn in Suppa's style |
 | `linux/` | Suppa for Linux (GTK + WebKitGTK): same scripts, same settings code (`src/settings.rs`), its own window, tabs, menus and ad-block host code; `linux/build.sh`, `linux/install.sh` |
-| `android/` | Suppa for Android (Kotlin + Android System WebView): same scripts and settings file, the phone parts of the interface in `android/scripts` (`mobile.css`, `mobile.js`, `tabs.html` = the tabs screen, `page.js`), the host code in `android/app/src/main/java/com/suppa/browser`; `android/build.bat` |
 
 ---
 
