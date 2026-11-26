@@ -375,17 +375,52 @@ fn short_title(title: &str, site: &str, front_page: bool) -> String {
             return first.to_string();
         }
     }
-    // Only a deeper page's title ("WH/MO/00189", "Before you continue"): the
-    // site's name ("Odoo", "Google"); for a subdomain ("doc.rust-lang.org"),
-    // localhost or an IP address, its address.
-    let word = main_label(site);
+    // Only a deeper page's title ("WH/MO/00189", "Before you continue"): one
+    // word from the address ("Odoo", "Accounts" for accounts.google.com);
+    // localhost or an IP address stays as it is.
+    site_word(site)
+}
+
+/// One short word naming a site from its address: the first readable label,
+/// skipping "www", short ones and machine-made ones full of digits
+/// ("accounts.google.com" -> "Accounts", "odoo.com" -> "Odoo",
+/// "r1132103852490-eu1-ifwe.3dexperience.3ds.com" -> "3dexperience").
+/// localhost and IP addresses are returned whole.
+fn site_word(site: &str) -> String {
+    if site.starts_with('[') {
+        return site.to_string(); // IPv6
+    }
     let host = site.split(':').next().unwrap_or(site);
-    let sub = host.split('.').count() > 2;
-    if !sub && word.len() > 1 && word.chars().all(|c| c.is_ascii_alphabetic() || c == '-') && word.starts_with(|c: char| c.is_ascii_alphabetic()) && word != "localhost" {
-        let mut c = word.chars();
-        c.next().map(|f| f.to_ascii_uppercase().to_string() + c.as_str()).unwrap_or_default()
-    } else {
-        site.to_string()
+    if host == "localhost" || host.parse::<std::net::IpAddr>().is_ok() {
+        return site.to_string();
+    }
+    let labels: Vec<&str> = host.split('.').collect();
+    let body = &labels[..labels.len().saturating_sub(1).max(1)]; // without the top-level domain
+    let readable = |l: &str| {
+        l.len() >= 4
+            && l != "www"
+            && l.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+            && l.chars().filter(|c| c.is_ascii_digit()).count() <= 2
+    };
+    let word = body.iter().copied().find(|l| readable(l)).unwrap_or_else(|| body[body.len() - 1]);
+    let mut c = word.chars();
+    c.next().map(|f| f.to_ascii_uppercase().to_string() + c.as_str()).unwrap_or_else(|| site.to_string())
+}
+
+#[cfg(test)]
+mod site_word_tests {
+    use super::site_word;
+
+    #[test]
+    fn short_names() {
+        assert_eq!(site_word("accounts.google.com"), "Accounts");
+        assert_eq!(site_word("chromewebstore.google.com"), "Chromewebstore");
+        assert_eq!(site_word("r1132103852490-eu1-ifwe.3dexperience.3ds.com"), "3dexperience");
+        assert_eq!(site_word("www.odoo.com"), "Odoo");
+        assert_eq!(site_word("doc.rust-lang.org"), "Rust-lang");
+        assert_eq!(site_word("x.ai"), "X");
+        assert_eq!(site_word("localhost:8765"), "localhost:8765");
+        assert_eq!(site_word("192.168.1.5"), "192.168.1.5");
     }
 }
 // ---- first run: copy the engine's own history ------------------------------------------

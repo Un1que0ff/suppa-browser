@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Suppa" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/suppa_bg</item>
+        <item name="android:colorAccent">#b07cff</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <style name="SuppaDialog" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#b07cff</item>
+    </style>
+    <color name="suppa_bg">#161616</color>
+    <color name="suppa_icon_bg">#161616</color>
+</resources>

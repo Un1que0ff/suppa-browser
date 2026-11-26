@@ -1,0 +1,8 @@
+# Android build output and local paths
+/.gradle/
+/build/
+/app/build/
+/local.properties
+*.jks
+*.keystore
+

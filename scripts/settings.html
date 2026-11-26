@@ -172,7 +172,7 @@
           <button data-v="lighter">Lighter</button>
         </div>
       </div>
-      <div class="row" data-win>
+      <div class="row" data-win data-android>
         <div class="label">Tint<small>Colours the whole interface, e.g. dark theme with 20% red</small></div>
         <input type="color" id="tint" title="Tint colour">
         <input type="range" id="tint_amount" min="0" max="60" step="1">
@@ -353,7 +353,7 @@
         <label class="sw"><input type="checkbox" id="autofill"><span></span></label>
       </div>
     </section>
-    <section data-win>
+    <section data-win data-android>
       <h2>History and downloads</h2>
       <div class="row">
         <div class="label">History<small>Pages you opened in normal tabs (Ctrl+H). The start page shows your most-used sites from it</small></div>
@@ -377,11 +377,11 @@
     </section>
   </div>
 
-  <div class="page" id="p-passwords" data-title="Passwords" data-win>
+  <div class="page" id="p-passwords" data-title="Passwords" data-win data-android>
     <section>
       <h2>Saving</h2>
       <div class="row">
-        <div class="label">Save passwords<small>Offers to save passwords and fills them in next time. Showing, copying or exporting them asks for your Windows PIN, fingerprint or password first</small></div>
+        <div class="label">Save passwords<small id="pw-note">Offers to save passwords and fills them in next time. Showing, copying or exporting them asks for your Windows PIN, fingerprint or password first</small></div>
         <label class="sw"><input type="checkbox" id="passwords"><span></span></label>
       </div>
     </section>
@@ -425,11 +425,11 @@
     </section>
   </div>
 
-  <div class="page" id="p-backup" data-title="Backup and import" data-win>
+  <div class="page" id="p-backup" data-title="Backup and import" data-win data-android>
     <section>
       <h2>Backup</h2>
       <div class="row">
-        <div class="label">Backup<small>Settings, saved tabs, open tabs, bar sizes, scripts, extensions, saved passwords and form data in one .zip. Passwords can be restored on this Windows account.</small></div>
+        <div class="label">Backup<small id="backup-note">Settings, saved tabs, open tabs, bar sizes, scripts, extensions, saved passwords and form data in one .zip. Passwords can be restored on this Windows account.</small></div>
         <button class="primary" data-action="backup">Back up...</button>
         <button data-action="restore">Restore...</button>
       </div>
@@ -437,7 +437,7 @@
     <section>
       <h2>Import from other browsers</h2>
       <div class="row">
-        <div class="label">Import bookmarks<small>From Chrome, Edge, Brave, Vivaldi, Opera or Firefox on this PC, or from an exported .html file. They go to the saved tabs bar.</small></div>
+        <div class="label">Import bookmarks<small id="import-note">From Chrome, Edge, Brave, Vivaldi, Opera or Firefox on this PC, or from an exported .html file. They go to the saved tabs bar.</small></div>
         <button data-action="import">Import...</button>
       </div>
       <div class="row">
@@ -448,10 +448,10 @@
   </div>
 
   <div class="page" id="p-about" data-title="Update and files">
-    <section data-win>
+    <section data-win data-android>
       <h2>New versions</h2>
       <div class="row">
-        <div class="label">Check for updates automatically<small>Once a day Suppa asks GitHub for the newest version (only the version number is read; nothing about you is sent). Installed with the setup, Suppa updates itself with one click</small></div>
+        <div class="label">Check for updates automatically<small id="update-note">Once a day Suppa asks GitHub for the newest version (only the version number is read; nothing about you is sent). Installed with the setup, Suppa updates itself with one click</small></div>
         <label class="sw"><input type="checkbox" id="auto_update"><span></span></label>
       </div>
       <div class="row">
@@ -477,6 +477,10 @@
       <div class="row">
         <div class="label">Scripts folder<small><code id="scripts-path"></code></small></div>
         <button data-action="open_scripts">Open</button>
+      </div>
+      <div class="row" data-only-android>
+        <div class="label">Edit the interface<small>Copies the built-in files (ui.css, menu.html, tabs.html...) to the scripts folder, where you can change them</small></div>
+        <button data-action="copy_scripts">Copy files</button>
       </div>
       <div class="row">
         <div class="label">Settings and data folder<small><code id="data-path"></code></small></div>
@@ -514,7 +518,7 @@ function renderSwatches() {
   cyc.onclick = () => set('accent', 'cycle');
   box.appendChild(cyc);
   const win = document.createElement('button');
-  const linux = S.platform === 'linux';
+  const linux = S.platform === 'linux' || S.platform === 'android';
   win.className = 'swatch' + (linux ? '' : ' win') + (S.accent === 'windows' ? ' sel' : '');
   win.style.background = S.windows_accent || '#0078d4';
   win.title = linux ? 'System accent colour (follows your desktop settings)' : 'Windows accent colour (follows your Windows settings)';
@@ -540,8 +544,12 @@ function render() {
   document.body.classList.toggle('light', !S.dark);
   // drop-down lists, number fields and scrollbars drawn for the theme (not always light)
   document.documentElement.style.colorScheme = S.dark ? 'dark' : 'light';
-  // Parts that only exist in Suppa for Windows (WebView2 features).
-  document.querySelectorAll('[data-win]').forEach((e) => { e.style.display = S.platform === 'linux' ? 'none' : ''; });
+  // Parts that only exist in Suppa for Windows (WebView2 features); data-android:
+  // also in Suppa for Android; data-only-android: only there.
+  const android = S.platform === 'android';
+  document.querySelectorAll('[data-win]').forEach((e) => { e.style.display = S.platform === 'linux' || (android && !e.hasAttribute('data-android')) ? 'none' : ''; });
+  document.querySelectorAll('[data-only-android]').forEach((e) => { e.style.display = android ? '' : 'none'; });
+  if (android) androidTexts();
   applyColors(S.palette || S.colors);
   const acc = S.accent === 'cycle' ? '#b07cff' : S.accent === 'windows' ? S.windows_accent : S.accent;
   document.body.style.setProperty('--accent', acc);
@@ -586,9 +594,23 @@ function render() {
   $('data-path').textContent = S.data;
   $('default-note').textContent = S.is_default
     ? 'Suppa is your default browser - links from other apps open here'
-    : 'Links from other apps open in another browser.' + (S.platform === 'linux' ? '' : ' Windows will ask you to choose Suppa.');
+    : 'Links from other apps open in another browser.' + (S.platform === 'linux' ? '' : android ? ' Android will ask you to choose Suppa.' : ' Windows will ask you to choose Suppa.');
   $('default-btn').style.display = S.is_default ? 'none' : '';
-  $('about').textContent = 'Suppa Browser ' + S.version + (S.engine ? ' · ' + (S.platform === 'linux' ? '' : 'WebView2 ') + S.engine : '');
+  const engine = S.platform === 'linux' ? '' : android ? 'Android System WebView ' : 'WebView2 ';
+  $('about').textContent = 'Suppa Browser ' + S.version + (S.engine ? ' · ' + engine + S.engine : '');
+}
+
+// Suppa for Android: no tab row (tabs have their own screen), rows only at the
+// top or bottom, and a few texts about the phone instead of Windows.
+function androidTexts() {
+  $('pw-note').textContent = 'Offers to save passwords and fills them in next time. Showing, copying or exporting them asks for your fingerprint, face or screen lock first';
+  $('import-note').textContent = 'From a bookmarks .html file exported by Chrome, Edge, Firefox or another browser. They go to ≡ -> Bookmarks.';
+  $('backup-note').textContent = 'Settings, bookmarks, open tabs, history, your scripts and saved passwords in one .zip. Passwords can be restored on this phone.';
+  $('update-note').textContent = 'Once a day Suppa asks GitHub for the newest version (only the version number is read; nothing about you is sent). A new version installs with one tap';
+  document.querySelectorAll('#bar-pos button[data-v=left], #bar-pos button[data-v=right]').forEach((b) => { b.style.display = 'none'; });
+  const sb = $('saved_bar').closest('.row');
+  sb.querySelector('.label').firstChild.textContent = 'Show bookmarks bar';
+  sb.querySelector('small').textContent = 'Bookmarks are always in ≡ -> Bookmarks; this also shows them as a row';
 }
 
 // ---- Pro settings -> Colors ----
@@ -674,15 +696,16 @@ function renderLayout() {
   // One line per row: where it is.
   const rp = $('row-pos');
   rp.textContent = '';
-  for (const k of ['tabs', 'nav', 'saved']) {
+  const android = S.platform === 'android';
+  for (const k of android ? ['nav', 'saved'] : ['tabs', 'nav', 'saved']) {
     const row = document.createElement('div');
     row.className = 'row';
     const lab = document.createElement('div');
     lab.className = 'label';
-    lab.textContent = ROW_NAMES[k];
+    lab.textContent = android && k === 'saved' ? 'Bookmarks bar' : ROW_NAMES[k];
     const seg = document.createElement('div');
     seg.className = 'seg';
-    for (const v of ['top', 'bottom', 'left', 'right']) {
+    for (const v of android ? ['top', 'bottom'] : ['top', 'bottom', 'left', 'right']) {
       const b = document.createElement('button');
       b.textContent = POS_NAMES[v];
       b.classList.toggle('primary', p[k] === v);
@@ -794,12 +817,14 @@ for (const p of PAGES) {
   b.textContent = p.dataset.title;
   b.dataset.page = p.id;
   if (p.hasAttribute('data-win')) b.setAttribute('data-win', '');
+  if (p.hasAttribute('data-android')) b.setAttribute('data-android', '');
   b.addEventListener('click', () => showPage(p.id));
   $('nav-list').appendChild(b);
 }
 function showPage(id) {
   const p = $(id);
   if (!p || (S && S.platform === 'linux' && p.hasAttribute('data-win'))) id = PAGES[0].id;
+  else if (S && S.platform === 'android' && p.hasAttribute('data-win') && !p.hasAttribute('data-android')) id = PAGES[0].id;
   if (page === 'p-passwords' && id !== page) pwShown = {};   // shown passwords hide again
   page = id;
   for (const x of PAGES) x.classList.toggle('on', x.id === id);
@@ -883,7 +908,7 @@ window.addEventListener('focus', () => { if (page === 'p-passwords') pwRequest('
 window.chrome.webview.addEventListener('message', (e) => {
   const m = e.data;
   if (!m) return;
-  if (m.type === 'settings') { S = m; render(); if (S.platform === 'linux') showPage(page); }
+  if (m.type === 'settings') { S = m; render(); if (S.platform === 'linux' || S.platform === 'android') showPage(page); }
   else if (m.type === 'pw_list') { PW = m; renderPw(); }
   else if (m.type === 'pw_reveal') {
     if (m.password != null) pwShown[m.realm + '\n' + m.user] = m.password;

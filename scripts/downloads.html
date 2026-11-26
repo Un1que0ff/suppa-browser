@@ -137,7 +137,7 @@ function render() {
       x.onclick = () => act(op, d.id);
       acts.appendChild(x);
     };
-    if (d.state === 'active') { btn('Pause', 'pause'); btn('Cancel', 'cancel'); }
+    if (d.state === 'active') { if (d.can_pause !== false) btn('Pause', 'pause'); btn('Cancel', 'cancel'); }
     else if (d.state === 'paused') { btn('Resume', 'resume', 'primary'); btn('Cancel', 'cancel'); }
     else if (d.exists) { btn('Open', 'open'); btn('Show in folder', 'folder'); }
     else btn('Download again', 'retry');
