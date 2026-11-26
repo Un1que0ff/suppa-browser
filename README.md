@@ -23,7 +23,7 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 - **Your look** - darker / dark / light / lighter theme, a tint over the whole interface, any accent colour (or the Windows accent), every interface colour, round or squircle corners, which tab corners are rounded, five icon styles, interface scale.
 - **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark import.
 - **Password manager** - see, search, copy and delete saved passwords (Windows Hello or your Windows password is asked first); import them from Firefox, Chrome, Edge or Brave and export them to a `.csv` file.
-- **History, downloads and shortcuts** - a searchable History page, a downloads popup next to ≡ with progress, and your most-used sites on the start page.
+- **History, downloads and shortcuts** - a searchable History page, a download button next to the address bar with progress, and your most-used sites with their icons on the start page.
 - **Updates itself** - checks GitHub once a day; installed with the setup, it updates with one click and shows what is new.
 - **Hackable** - the whole interface is plain HTML/CSS/JS in a folder next to the exe; edit it and press **Update**.
 
@@ -42,7 +42,7 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 | ![Password manager](docs/screenshots/passwords.png) | ![Tabs on the left, red tint](docs/screenshots/layout-tint.png) |
 | **Password manager** - search, show, copy, delete; import from Firefox, Chrome, Edge or Brave and export to `.csv` | **Your layout and look** - tabs on the left, address bar on top, dark theme with a 20% red tint and squircle corners |
 | ![History](docs/screenshots/history.png) | ![Start page and downloads](docs/screenshots/downloads-start.png) |
-| **History** (`Ctrl+H`) - grouped by day, with search | **Start page shortcuts** (your most-used sites) and the **downloads popup** next to ≡ |
+| **History** (`Ctrl+H`) - grouped by day, with search | **Start page shortcuts** (your most-used sites) and the **downloads popup** |
 
 ![Custom colours](docs/screenshots/settings-colors.png)
 *Settings → Custom colours: change every colour of the interface (separately for the light and dark theme).*
@@ -138,7 +138,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 
 ### History and downloads
 - **History** (`Ctrl+H`, ≡ → History): every page opened in a normal tab, grouped by day, with search; delete single pages, the last hour or everything. The first start copies the history the engine already had. Incognito tabs are never recorded.
-- **Start page shortcuts**: the Suppa start page shows your 8 most-visited sites of the last 90 days (letters, no icons are loaded from the web); × removes one.
+- **Start page shortcuts**: the Suppa start page shows your 8 most-visited sites of the last 90 days with the icons their tabs showed (a coloured letter for a site without one); × removes one. The start page uses your theme and accent colour and shows the Suppa version. Saved tabs and the History page show the same site icons, so imported bookmarks get theirs once you visit the site.
 - **Downloads**: no more Edge download box. When a download starts, a popup opens with its progress, and the download button next to the address bar fills with the accent colour clockwise as it downloads (turn the button off in ≡ -> Show download button). Click = open / pause / resume, right-click = Show in folder, Cancel, Download again, Remove. The **Downloads page** (`Ctrl+J`) lists every download with search, Open, Show in folder, Pause / Resume and Cancel.
 
 ### Updates

@@ -429,7 +429,8 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                 let record = app::with(|s| {
                     let mut rec = None;
                     if let Some(t) = s.tab_mut(id) {
-                        if !t.incognito && t.url != url {
+                        if !t.incognito && t.recorded != url {
+                            t.recorded = url.clone();
                             rec = Some(t.title.clone());
                         }
                         t.url = url.clone();
@@ -559,12 +560,20 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                     let Some(sender) = sender else { return Ok(()) };
                     let Ok(w15) = sender.cast::<ICoreWebView2_15>() else { return Ok(()) };
                     let fav = get_str(|p| w15.FaviconUri(p));
-                    app::with(|s| {
+                    let page = app::with(|s| {
+                        let page = s.tab(id).filter(|t| !t.incognito).map(|t| t.url.clone());
                         if let Some(t) = s.tab_mut(id) {
-                            t.favicon = fav;
+                            t.favicon = fav.clone();
                         }
                         ui::update_tab_by_id(s, id);
-                    });
+                        page
+                    })
+                    .flatten();
+                    // Saved tabs of this site get its icon (imported ones have none yet).
+                    if let Some(page) = page {
+                        crate::saved::learn_icon(&page, &fav);
+                        crate::history::learn_icon(&page, &fav);
+                    }
                     Ok(())
                 })),
                 &mut token,

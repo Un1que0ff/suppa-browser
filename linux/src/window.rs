@@ -35,7 +35,22 @@ fn register_scheme(ctx: &WebContext) {
             "ui" => if path.is_empty() { "ui.html".to_string() } else { path.to_string() },
             _ => String::new(),
         };
-        match scripts::serve(&file) {
+        let served = scripts::serve(&file).map(|(mime, bytes)| {
+            if file != "newtab.html" {
+                return (mime, bytes);
+            }
+            // The start page's blanks: search engine and version (no shortcuts
+            // or theme colours on Linux yet).
+            let search = crate::app::with(|s| s.settings.search_base().to_string())
+                .unwrap_or_else(|| crate::settings::SEARCH_ENGINES[0].1.to_string());
+            let html = String::from_utf8_lossy(&bytes)
+                .replace("{{SEARCH}}", &search)
+                .replace("{{VERSION}}", env!("CARGO_PKG_VERSION"))
+                .replace("{{THEME}}", "")
+                .replace("{{SHORTCUTS}}", "[]");
+            (mime, html.into_bytes())
+        });
+        match served {
             Some((mime, bytes)) => {
                 let len = bytes.len() as i64;
                 let stream = gtk::gio::MemoryInputStream::from_bytes(&glib::Bytes::from_owned(bytes));

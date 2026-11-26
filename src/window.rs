@@ -161,7 +161,13 @@ pub fn run() {
         for u in &urls {
             tabs::add_lazy(u.clone());
         }
-        app::with(|s| s.active = active);
+        app::with(|s| {
+            s.active = active;
+            // Tabs coming back from the last session are not new visits.
+            for t in s.tabs.iter_mut() {
+                t.recorded = t.url.clone();
+            }
+        });
         if restore {
             crate::groups::restore(&settings::load_session_meta());
         }

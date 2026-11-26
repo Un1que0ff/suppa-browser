@@ -156,7 +156,8 @@ pub fn list_json(q: &str, offset: usize, limit: usize) -> serde_json::Value {
             if items.len() >= limit {
                 break;
             }
-            items.push(serde_json::json!({ "t": x.t, "url": x.url, "title": x.title }));
+            let icon = with_icons(|m| m.get(&site_of(&x.url)).cloned()).unwrap_or_default();
+            items.push(serde_json::json!({ "t": x.t, "url": x.url, "title": x.title, "icon": icon }));
         }
         serde_json::json!({ "type": "hist", "items": items, "offset": offset, "more": items.len() >= limit, "total": h.v.len() })
     })
@@ -178,6 +179,112 @@ pub fn clear(since_ms: i64) {
         h.v.retain(|x| x.t < since_ms);
         write(&h.v);
         h.dirty = 0;
+    });
+    if since_ms <= 0 {
+        clear_icons();
+    }
+}
+
+// ---- site icons (start page shortcuts) -------------------------------------------------
+// The icon address of each site ("site" = host without "www."), learned when a
+// page in a normal tab gets its icon. Kept in site-icons.tsv.
+
+const ICONS: &str = "site-icons.tsv";
+
+thread_local! {
+    static ICON_MAP: RefCell<Option<HashMap<String, String>>> = const { RefCell::new(None) };
+}
+
+fn with_icons<R>(f: impl FnOnce(&mut HashMap<String, String>) -> R) -> R {
+    ICON_MAP.with(|m| {
+        let mut m = m.borrow_mut();
+        let m = m.get_or_insert_with(|| match std::fs::read_to_string(util::data_dir().join(ICONS)) {
+            Ok(t) => t.lines().filter_map(|l| l.split_once('\t')).map(|(a, b)| (a.to_string(), b.to_string())).collect(),
+            Err(_) => {
+                // First time: the icons the engine already knows.
+                let m = engine_icons();
+                util::log(&format!("history: {} site icons copied from the engine", m.len()));
+                write_icons(&m);
+                m
+            }
+        });
+        f(m)
+    })
+}
+
+fn write_icons(m: &HashMap<String, String>) {
+    let text: String = m.iter().map(|(a, b)| format!("{a}\t{b}\n")).collect();
+    let _ = std::fs::write(util::data_dir().join(ICONS), text);
+}
+
+/// The icon of a site, if known ("site" = host without "www.").
+pub fn icon_for(url: &str) -> Option<String> {
+    let site = site_of(url);
+    with_icons(|m| m.get(&site).cloned())
+}
+
+/// Site -> icon address from the engine's own Favicons database.
+fn engine_icons() -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    let db = util::sub_dir("UserData").join("EBWebView").join("Default").join("Favicons");
+    if !db.exists() {
+        return out;
+    }
+    let tmp = util::data_dir().join("favicons-read.tmp");
+    if std::fs::copy(&db, &tmp).is_err() {
+        return out;
+    }
+    let r = (|| -> Result<(), String> {
+        let conn = crate::sqlite::Sqlite::load()?.open(&tmp)?;
+        let mut st = conn.prepare("SELECT m.page_url, f.url FROM icon_mapping m JOIN favicons f ON f.id = m.icon_id")?;
+        while st.next()? {
+            let (page, icon) = (st.col_text(0), st.col_text(1));
+            if keep(&page) && icon.starts_with("http") {
+                let site = site_of(&page);
+                // A site's front page icon wins over its other pages' icons.
+                let front = page.splitn(4, '/').nth(3).unwrap_or("").is_empty();
+                if !site.is_empty() && (front || !out.contains_key(&site)) {
+                    out.insert(site, icon);
+                }
+            }
+        }
+        Ok(())
+    })();
+    let _ = std::fs::remove_file(&tmp);
+    if let Err(e) = r {
+        util::log(&format!("history: engine icons not read: {e}"));
+    }
+    out
+}
+
+fn site_of(url: &str) -> String {
+    let rest = url.split_once("://").map(|x| x.1).unwrap_or("");
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("").to_ascii_lowercase();
+    host.strip_prefix("www.").unwrap_or(&host).to_string()
+}
+
+/// A page in a normal tab got its icon.
+pub fn learn_icon(page_url: &str, icon: &str) {
+    if !keep(page_url) || !icon.starts_with("http") {
+        return;
+    }
+    let site = site_of(page_url);
+    if site.is_empty() {
+        return;
+    }
+    with_icons(|m| {
+        if m.get(&site).map(|x| x.as_str()) != Some(icon) {
+            m.insert(site, icon.to_string());
+            write_icons(m);
+        }
+    });
+}
+
+fn clear_icons() {
+    // Kept as an empty file, so the engine's icons are not copied in again.
+    with_icons(|m| {
+        m.clear();
+        write_icons(m);
     });
 }
 
@@ -230,7 +337,8 @@ pub fn most_used(n: usize) -> serde_json::Value {
             .take(n)
             .map(|(site, (_, url, front, any, _))| {
                 let title = short_title(if front.is_empty() { &any } else { &front }, &site);
-                serde_json::json!({ "url": url, "title": title, "host": site, "name": main_label(&site) })
+                let icon = with_icons(|m| m.get(&site).cloned()).unwrap_or_default();
+                serde_json::json!({ "url": url, "title": title, "host": site, "name": main_label(&site), "icon": icon })
             })
             .collect();
         serde_json::Value::Array(items)
@@ -255,13 +363,19 @@ fn short_title(title: &str, site: &str) -> String {
         t = t.replace(sep, "\u{1}");
     }
     let parts: Vec<&str> = t.split('\u{1}').map(str::trim).filter(|p| !p.is_empty()).collect();
-    let pick = parts
-        .iter()
-        .find(|p| p.to_lowercase().replace([' ', '-'], "").contains(&label))
-        .or(parts.first())
-        .copied()
-        .unwrap_or("");
-    if pick.is_empty() || pick.chars().count() > 24 { site.to_string() } else { pick.to_string() }
+    let named = parts.iter().find(|p| p.to_lowercase().replace([' ', '-'], "").contains(&label)).copied().unwrap_or("");
+    if !named.is_empty() && named.chars().count() <= 24 {
+        return named.to_string();
+    }
+    // No part names the site ("WH/MO/00189", "Before you continue"): the site's
+    // own name ("Odoo", "Google"), or its address for localhost / IP addresses.
+    let word = main_label(site);
+    if word.len() > 1 && word.chars().all(|c| c.is_ascii_alphabetic() || c == '-') && word.starts_with(|c: char| c.is_ascii_alphabetic()) && word != "localhost" {
+        let mut c = word.chars();
+        c.next().map(|f| f.to_ascii_uppercase().to_string() + c.as_str()).unwrap_or_default()
+    } else {
+        site.to_string()
+    }
 }
 // ---- first run: copy the engine's own history ------------------------------------------
 

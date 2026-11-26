@@ -21,6 +21,8 @@
   /* The window is cut to the rounded shape (popup.rs). The few pixels between
      that cut and the box's outline take the panel colour (set from the theme by
      the script below), so nothing light ever shows in the corners. */
+  /* one-colour site icons that would vanish in this theme (see toneIcon) */
+  body.light img.ic-w, body:not(.light) img.ic-b { filter: invert(1); }
   html, body { margin: 0; background: var(--panel); overflow: hidden; user-select: none; }
   body { font: 400 10pt "Segoe UI", system-ui, sans-serif; color: var(--fg); }
   #m {
@@ -78,6 +80,89 @@
 <div id="m"></div>
 <script>
 'use strict';
+// Site icons in Suppa's theme (light / dark), not the system's:
+//  * An SVG icon that changes colour by itself (Rust's: white on dark systems)
+//    follows the system setting, so it is shown as a copy set to Suppa's theme.
+//  * An icon of one plain colour on a see-through background (GitHub's white
+//    cat, a black logo) gets class "ic-w" (white) or "ic-b" (black); the page
+//    inverts "ic-w" in the light theme and "ic-b" in the dark one.
+//  * Coloured icons and icons with their own background are left alone.
+// Only icons whose site allows reading them can be checked (most icon servers do).
+const ICON_TONE = new Map();
+function iconTone(url) {
+  return new Promise((done) => {
+    const probe = new Image();
+    probe.onerror = () => done('');
+    probe.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = c.height = 24;
+        const g = c.getContext('2d');
+        g.drawImage(probe, 0, 0, 24, 24);
+        const d = g.getImageData(0, 0, 24, 24).data;
+        let clear = 0, solid = 0, white = 0, black = 0, colour = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 60) { clear++; continue; }
+          solid++;
+          const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 40) colour++;
+          else if (l > 200) white++;
+          else if (l < 60) black++;
+        }
+        const see = clear / (clear + solid) > 0.2 && colour < solid * 0.08;
+        done(!see || !solid ? '' : white > solid * 0.85 ? 'w' : black > solid * 0.85 ? 'b' : '');
+      } catch (e) { done(''); }
+    };
+    probe.src = url;
+  });
+}
+// -> { tone: '' | 'w' | 'b', src: address to show (a themed copy for adaptive SVGs) }
+async function checkIcon(src, light) {
+  try {
+    const r = await fetch(src, { mode: 'cors', credentials: 'omit' });
+    if (!r.ok) return { tone: '', src };
+    const blob = await r.blob();
+    if (/svg/.test(blob.type) || /\.svg(\?|$)/i.test(src)) {
+      const text = await blob.text();
+      if (/prefers-color-scheme/i.test(text)) {
+        // Set the icon's own light/dark choice to Suppa's theme.
+        const yes = 'min-width: 0px', no = 'max-width: 0px) and (min-width: 1px';
+        const fixed = text
+          .replace(/prefers-color-scheme\s*:\s*dark/gi, light ? no : yes)
+          .replace(/prefers-color-scheme\s*:\s*light/gi, light ? yes : no);
+        return { tone: '', src: URL.createObjectURL(new Blob([fixed], { type: 'image/svg+xml' })) };
+      }
+    }
+    return { tone: await iconTone(URL.createObjectURL(blob)), src };
+  } catch (e) {
+    return { tone: '', src };   // the site does not allow reading its icon
+  }
+}
+function toneIcon(img, src) {
+  if (!/^https?:/.test(src)) return;
+  img._tone = src;
+  const light = document.body.classList.contains('light');
+  const key = src + (light ? ' light' : ' dark');
+  img._key = key;
+  // only the answer for the current theme counts (an older check may finish later)
+  const set = (v) => {
+    if (img._key !== key || !v) return;
+    img.classList.toggle('ic-w', v.tone === 'w');
+    img.classList.toggle('ic-b', v.tone === 'b');
+    if (img.getAttribute('src') !== v.src) img.src = v.src;
+  };
+  let t = ICON_TONE.get(key);
+  if (t === undefined) {
+    t = checkIcon(src, light);
+    ICON_TONE.set(key, t);
+    t.then((v) => ICON_TONE.set(key, v));
+  }
+  if (t instanceof Promise) t.then(set); else set(t);
+}
+// The theme changed: check the shown icons again (after the new colours apply).
+function retoneIcons() {
+  setTimeout(() => document.querySelectorAll('img').forEach((i) => { if (i._tone) toneIcon(i, i._tone); }), 60);
+}
 const m = document.getElementById('m');
 const post = (x) => window.chrome.webview.postMessage(x);
 let stack = [];      // panels: {title, items}
@@ -154,6 +239,7 @@ function render() {
       img.className = 'ico';
       img.src = it.i;
       img.onerror = () => { img.style.visibility = 'hidden'; };
+      toneIcon(img, it.i);
       el.appendChild(img);
     }
     const lab = document.createElement('span');

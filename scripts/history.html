@@ -30,7 +30,8 @@
     height: 32px; background: var(--field); color: var(--fg); border: 1px solid var(--border);
     border-radius: var(--r-btn); padding: 0 12px; font: inherit; outline: none;
   }
-  input[type=text]:focus { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  /* focused: one real 2px accent border, 1px less padding so the text stays put */
+  input[type=text]:focus { border: 2px solid var(--accent); padding: 0 11px; }
   section { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-box); padding: 4px 14px; margin-bottom: 14px; }
   h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 12px 0 4px; }
   .row { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid var(--border); min-height: 40px; }
@@ -46,6 +47,11 @@
   .x:hover { color: var(--fg); }
   .empty { color: var(--muted); padding: 30px 0; text-align: center; }
   #more { display: block; margin: 10px auto; }
+  #more[hidden] { display: none; }
+  .ic { width: 16px; height: 16px; flex: 0 0 16px; object-fit: contain; align-self: center; }
+  .ic.none { border-radius: 50%; background: var(--btn-hover); }
+  /* one-colour site icons that would vanish in this theme (see toneIcon) */
+  body.light img.ic-w, body:not(.light) img.ic-b { filter: invert(1); }
   ::-webkit-scrollbar { width: 12px; background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--btn-hover); border: 3px solid var(--bg); border-radius: 6px; }
 </style>
@@ -64,6 +70,89 @@
 </main>
 <script>
 'use strict';
+// Site icons in Suppa's theme (light / dark), not the system's:
+//  * An SVG icon that changes colour by itself (Rust's: white on dark systems)
+//    follows the system setting, so it is shown as a copy set to Suppa's theme.
+//  * An icon of one plain colour on a see-through background (GitHub's white
+//    cat, a black logo) gets class "ic-w" (white) or "ic-b" (black); the page
+//    inverts "ic-w" in the light theme and "ic-b" in the dark one.
+//  * Coloured icons and icons with their own background are left alone.
+// Only icons whose site allows reading them can be checked (most icon servers do).
+const ICON_TONE = new Map();
+function iconTone(url) {
+  return new Promise((done) => {
+    const probe = new Image();
+    probe.onerror = () => done('');
+    probe.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = c.height = 24;
+        const g = c.getContext('2d');
+        g.drawImage(probe, 0, 0, 24, 24);
+        const d = g.getImageData(0, 0, 24, 24).data;
+        let clear = 0, solid = 0, white = 0, black = 0, colour = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 60) { clear++; continue; }
+          solid++;
+          const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 40) colour++;
+          else if (l > 200) white++;
+          else if (l < 60) black++;
+        }
+        const see = clear / (clear + solid) > 0.2 && colour < solid * 0.08;
+        done(!see || !solid ? '' : white > solid * 0.85 ? 'w' : black > solid * 0.85 ? 'b' : '');
+      } catch (e) { done(''); }
+    };
+    probe.src = url;
+  });
+}
+// -> { tone: '' | 'w' | 'b', src: address to show (a themed copy for adaptive SVGs) }
+async function checkIcon(src, light) {
+  try {
+    const r = await fetch(src, { mode: 'cors', credentials: 'omit' });
+    if (!r.ok) return { tone: '', src };
+    const blob = await r.blob();
+    if (/svg/.test(blob.type) || /\.svg(\?|$)/i.test(src)) {
+      const text = await blob.text();
+      if (/prefers-color-scheme/i.test(text)) {
+        // Set the icon's own light/dark choice to Suppa's theme.
+        const yes = 'min-width: 0px', no = 'max-width: 0px) and (min-width: 1px';
+        const fixed = text
+          .replace(/prefers-color-scheme\s*:\s*dark/gi, light ? no : yes)
+          .replace(/prefers-color-scheme\s*:\s*light/gi, light ? yes : no);
+        return { tone: '', src: URL.createObjectURL(new Blob([fixed], { type: 'image/svg+xml' })) };
+      }
+    }
+    return { tone: await iconTone(URL.createObjectURL(blob)), src };
+  } catch (e) {
+    return { tone: '', src };   // the site does not allow reading its icon
+  }
+}
+function toneIcon(img, src) {
+  if (!/^https?:/.test(src)) return;
+  img._tone = src;
+  const light = document.body.classList.contains('light');
+  const key = src + (light ? ' light' : ' dark');
+  img._key = key;
+  // only the answer for the current theme counts (an older check may finish later)
+  const set = (v) => {
+    if (img._key !== key || !v) return;
+    img.classList.toggle('ic-w', v.tone === 'w');
+    img.classList.toggle('ic-b', v.tone === 'b');
+    if (img.getAttribute('src') !== v.src) img.src = v.src;
+  };
+  let t = ICON_TONE.get(key);
+  if (t === undefined) {
+    t = checkIcon(src, light);
+    ICON_TONE.set(key, t);
+    t.then((v) => ICON_TONE.set(key, v));
+  }
+  if (t instanceof Promise) t.then(set); else set(t);
+}
+// The theme changed: check the shown icons again (after the new colours apply).
+function retoneIcons() {
+  setTimeout(() => document.querySelectorAll('img').forEach((i) => { if (i._tone) toneIcon(i, i._tone); }), 60);
+}
 const $ = (id) => document.getElementById(id);
 const post = (m) => window.chrome.webview.postMessage(m);
 let items = [];
@@ -76,7 +165,11 @@ function onColor(hex) {
   return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 160 ? '#1c1c1c' : '#ffffff';
 }
 function theme(S) {
+  const was = document.body.classList.contains('light');
   document.body.classList.toggle('light', !S.dark);
+  // checkboxes and scrollbars drawn for the theme (not always light)
+  document.documentElement.style.colorScheme = S.dark ? 'dark' : 'light';
+  if (was !== !S.dark) retoneIcons();
   document.body.classList.toggle('squircle', S.corner_shape === 'squircle');
   const c = S.palette || S.colors || {};
   for (const n of ['bg', 'panel', 'field', 'btn', 'btn-hover', 'fg', 'muted', 'border']) {
@@ -126,6 +219,15 @@ function render() {
     const tm = document.createElement('span');
     tm.className = 'time';
     tm.textContent = new Date(it.t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    // the site's icon (the one its tab showed), or a plain dot
+    const ic = document.createElement(it.icon ? 'img' : 'span');
+    ic.className = it.icon ? 'ic' : 'ic none';
+    if (it.icon) {
+      ic.src = it.icon;
+      ic.alt = '';
+      toneIcon(ic, it.icon);
+      ic.onerror = () => { const d = document.createElement('span'); d.className = 'ic none'; ic.replaceWith(d); };
+    }
     const what = document.createElement('div');
     what.className = 'what';
     const a = document.createElement('a');
@@ -140,7 +242,7 @@ function render() {
     x.textContent = '×';
     x.title = 'Delete from history';
     x.onclick = () => post({ cmd: 'delete', items: [{ t: it.t, url: it.url }] });
-    row.append(cb, tm, what, x);
+    row.append(cb, tm, ic, what, x);
     sec.appendChild(row);
   }
   $('del-sel').hidden = !sel.size;

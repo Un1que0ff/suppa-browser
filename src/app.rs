@@ -137,6 +137,9 @@ pub struct Tab {
     pub cookie_script_id: Option<String>,
     /// Tab group id (0 = not in a group).
     pub group: u32,
+    /// The last address written to the history from this tab (the first page
+    /// of a tab opened with an address counts too, though `url` already has it).
+    pub recorded: String,
 }
 
 /// A group of tabs (label + colour in the tab row).
@@ -155,6 +158,7 @@ impl Tab {
             focus_address: false,
             cookie_script_id: None,
             group: 0,
+            recorded: String::new(),
             id,
             controller: None,
             webview: None,

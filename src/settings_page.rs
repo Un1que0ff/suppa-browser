@@ -98,7 +98,11 @@ pub fn broadcast() {
     let wvs = app::with(|s| {
         s.tabs
             .iter()
-            .filter(|t| util::host_of(&t.url) == crate::tabs::SETTINGS_HOST)
+            // Settings, and the History / Downloads pages (same theme message)
+            .filter(|t| {
+                let h = util::host_of(&t.url);
+                h == crate::tabs::SETTINGS_HOST || crate::pages::is_page(&h)
+            })
             .filter_map(|t| t.webview.clone())
             .collect::<Vec<_>>()
     })

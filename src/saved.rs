@@ -113,7 +113,11 @@ pub fn sync() {
     let items: Vec<Value> = with(|v| {
         v.iter()
             .map(|n| match n {
-                Node::Link(l) => json!({ "t": display_title(l), "u": l.url, "i": l.icon }),
+                // No icon of its own yet (imported): the site's icon, if Suppa knows it.
+                Node::Link(l) => {
+                    let icon = if l.icon.is_empty() { crate::history::icon_for(&l.url).unwrap_or_default() } else { l.icon.clone() };
+                    json!({ "t": display_title(l), "u": l.url, "i": icon })
+                }
                 Node::Folder { title, items } => json!({ "f": title, "n": items.len() }),
             })
             .collect()
@@ -159,6 +163,39 @@ pub fn add_imported(nodes: Vec<Node>) -> usize {
     });
     sync();
     added
+}
+
+/// A page in a normal tab got its icon: saved links to that page get it, and
+/// links to the same site that have no icon yet (e.g. imported bookmarks).
+pub fn learn_icon(page_url: &str, icon: &str) {
+    if !icon.starts_with("http") || page_url.is_empty() {
+        return;
+    }
+    let host = util::host_of(page_url).trim_start_matches("www.").to_ascii_lowercase();
+    let same = |a: &str| a.trim_end_matches('/') == page_url.trim_end_matches('/');
+    let changed = with(|v| {
+        let mut changed = false;
+        let mut fix = |l: &mut Link| {
+            let site = util::host_of(&l.url).trim_start_matches("www.").to_ascii_lowercase();
+            if l.icon != icon && (same(&l.url) || (l.icon.is_empty() && !host.is_empty() && site == host)) {
+                l.icon = icon.to_string();
+                changed = true;
+            }
+        };
+        for n in v.iter_mut() {
+            match n {
+                Node::Link(l) => fix(l),
+                Node::Folder { items, .. } => items.iter_mut().for_each(&mut fix),
+            }
+        }
+        if changed {
+            save(v);
+        }
+        changed
+    });
+    if changed {
+        sync();
+    }
 }
 
 /// Star button: save the current website, or remove it if it is saved.
@@ -479,7 +516,8 @@ fn folder_items(fi: usize) -> Option<Vec<Item>> {
                 .enumerate()
                 .map(|(j, l)| {
                     let j = j as i64;
-                    Item::new(j, display_title(l)).icon(&l.icon).draggable().ctx(vec![
+                    let icon = if l.icon.is_empty() { crate::history::icon_for(&l.url).unwrap_or_default() } else { l.icon.clone() };
+                    Item::new(j, display_title(l)).icon(&icon).draggable().ctx(vec![
                         Item::new(OPEN_NEW + j, "Open in new tab"),
                         Item::new(OPEN_INC + j, "Open in incognito tab"),
                         Item::sep(),

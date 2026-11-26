@@ -1,6 +1,7 @@
 <!doctype html>
 <!-- Suppa Browser - new tab page. {{SEARCH}} is replaced with the chosen search engine,
-     {{SHORTCUTS}} with the most-used sites from the history ([{url, title, host, name}]). -->
+     {{THEME}} with the interface colours and accent, {{VERSION}} with Suppa's version,
+     {{SHORTCUTS}} with the most-used sites from the history ([{url, title, host, name, icon}]). -->
 <html><head><meta charset="utf-8"><title>New Tab</title>
 <meta name="color-scheme" content="light dark">
 <style>
@@ -13,7 +14,7 @@ h1 span{color:#b07cff}
 input{width:100%;box-sizing:border-box;font-size:17px;padding:13px 20px;border-radius:12px;
  border:1px solid #383838;outline:none;background:#272727;color:inherit}
 @media (prefers-color-scheme: light){input{background:#fff;border-color:#d0d0d0}}
-input:focus{border-color:#b07cff}
+input:focus{border:2px solid #b07cff;padding:12px 19px}
 p{opacity:.55;font-size:13px;margin-top:18px}
 /* Most-used sites */
 #tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:26px}
@@ -22,21 +23,115 @@ p{opacity:.55;font-size:13px;margin-top:18px}
  border-radius:12px;color:inherit;text-decoration:none}
 .tile:hover{background:rgba(127,127,127,.14)}
 .tile .l{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:19px;font-weight:600;color:#fff}
+.tile .l.i{background:rgba(127,127,127,.16)}
+.tile .l img{width:24px;height:24px;object-fit:contain}
+/* one-colour site icons that would vanish in this theme (see toneIcon) */
+body.light img.ic-w,body:not(.light) img.ic-b{filter:invert(1)}
 .tile .n{font-size:12.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tile .x{position:absolute;top:4px;right:6px;width:20px;height:20px;border:0;border-radius:50%;background:transparent;
  color:inherit;opacity:0;cursor:pointer;font-size:14px;line-height:20px;padding:0}
 .tile:hover .x{opacity:.6}
 .tile .x:hover{opacity:1;background:rgba(127,127,127,.25)}
-</style></head>
+</style>
+<!-- The browser's theme and accent colour (filled in by Suppa) -->
+<style>{{THEME}}</style></head>
 <body><main>
 <h1>Suppa<span>.</span></h1>
 <form action="{{SEARCH}}" method="get"><input name="q" placeholder="Search the web" autocomplete="off" autofocus></form>
 <div id="tiles"></div>
-<p>Ads and trackers are blocked. Background tabs sleep to save memory.</p>
+<p>Suppa {{VERSION}}</p>
 </main>
 <script type="application/json" id="sites">{{SHORTCUTS}}</script>
 <script>
 'use strict';
+// Site icons in Suppa's theme (light / dark), not the system's:
+//  * An SVG icon that changes colour by itself (Rust's: white on dark systems)
+//    follows the system setting, so it is shown as a copy set to Suppa's theme.
+//  * An icon of one plain colour on a see-through background (GitHub's white
+//    cat, a black logo) gets class "ic-w" (white) or "ic-b" (black); the page
+//    inverts "ic-w" in the light theme and "ic-b" in the dark one.
+//  * Coloured icons and icons with their own background are left alone.
+// Only icons whose site allows reading them can be checked (most icon servers do).
+const ICON_TONE = new Map();
+function iconTone(url) {
+  return new Promise((done) => {
+    const probe = new Image();
+    probe.onerror = () => done('');
+    probe.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = c.height = 24;
+        const g = c.getContext('2d');
+        g.drawImage(probe, 0, 0, 24, 24);
+        const d = g.getImageData(0, 0, 24, 24).data;
+        let clear = 0, solid = 0, white = 0, black = 0, colour = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 60) { clear++; continue; }
+          solid++;
+          const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 40) colour++;
+          else if (l > 200) white++;
+          else if (l < 60) black++;
+        }
+        const see = clear / (clear + solid) > 0.2 && colour < solid * 0.08;
+        done(!see || !solid ? '' : white > solid * 0.85 ? 'w' : black > solid * 0.85 ? 'b' : '');
+      } catch (e) { done(''); }
+    };
+    probe.src = url;
+  });
+}
+// -> { tone: '' | 'w' | 'b', src: address to show (a themed copy for adaptive SVGs) }
+async function checkIcon(src, light) {
+  try {
+    const r = await fetch(src, { mode: 'cors', credentials: 'omit' });
+    if (!r.ok) return { tone: '', src };
+    const blob = await r.blob();
+    if (/svg/.test(blob.type) || /\.svg(\?|$)/i.test(src)) {
+      const text = await blob.text();
+      if (/prefers-color-scheme/i.test(text)) {
+        // Set the icon's own light/dark choice to Suppa's theme.
+        const yes = 'min-width: 0px', no = 'max-width: 0px) and (min-width: 1px';
+        const fixed = text
+          .replace(/prefers-color-scheme\s*:\s*dark/gi, light ? no : yes)
+          .replace(/prefers-color-scheme\s*:\s*light/gi, light ? yes : no);
+        return { tone: '', src: URL.createObjectURL(new Blob([fixed], { type: 'image/svg+xml' })) };
+      }
+    }
+    return { tone: await iconTone(URL.createObjectURL(blob)), src };
+  } catch (e) {
+    return { tone: '', src };   // the site does not allow reading its icon
+  }
+}
+function toneIcon(img, src) {
+  if (!/^https?:/.test(src)) return;
+  img._tone = src;
+  const light = document.body.classList.contains('light');
+  const key = src + (light ? ' light' : ' dark');
+  img._key = key;
+  // only the answer for the current theme counts (an older check may finish later)
+  const set = (v) => {
+    if (img._key !== key || !v) return;
+    img.classList.toggle('ic-w', v.tone === 'w');
+    img.classList.toggle('ic-b', v.tone === 'b');
+    if (img.getAttribute('src') !== v.src) img.src = v.src;
+  };
+  let t = ICON_TONE.get(key);
+  if (t === undefined) {
+    t = checkIcon(src, light);
+    ICON_TONE.set(key, t);
+    t.then((v) => ICON_TONE.set(key, v));
+  }
+  if (t instanceof Promise) t.then(set); else set(t);
+}
+// The theme changed: check the shown icons again (after the new colours apply).
+function retoneIcons() {
+  setTimeout(() => document.querySelectorAll('img').forEach((i) => { if (i._tone) toneIcon(i, i._tone); }), 60);
+}
+// Light or dark: Suppa's theme (--theme, from {{THEME}}), else the system's.
+{
+  const th = getComputedStyle(document.documentElement).getPropertyValue('--theme').trim();
+  document.body.classList.toggle('light', th ? th === 'light' : matchMedia('(prefers-color-scheme: light)').matches);
+}
 // Linux (or an older Suppa) leaves the placeholder in: no shortcuts then.
 let SITES = [];
 try { SITES = JSON.parse(document.getElementById('sites').textContent); } catch (e) {}
@@ -50,8 +145,20 @@ for (const s of SITES) {
   a.title = s.title + '\n' + s.url;
   const l = document.createElement('div');
   l.className = 'l';
-  l.textContent = (s.name[0] || '?').toUpperCase();
-  l.style.background = color(s.host);
+  const letter = () => {
+    l.textContent = (s.name[0] || '?').toUpperCase();
+    l.style.background = color(s.host);
+  };
+  // The site's own icon on a light circle; the coloured letter if it has none.
+  if (s.icon) {
+    l.classList.add('i');
+    const img = document.createElement('img');
+    img.src = s.icon;
+    toneIcon(img, s.icon);
+    img.alt = '';
+    img.onerror = () => { img.remove(); l.classList.remove('i'); letter(); };
+    l.appendChild(img);
+  } else letter();
   const n = document.createElement('div');
   n.className = 'n';
   n.textContent = s.title;

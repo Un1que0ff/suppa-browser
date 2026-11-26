@@ -71,6 +71,7 @@ pub fn show_main() {
         Item::cmd(CMD_LOCK_SIZES, "Lock bar sizes").checked(locked),
         Item::new(SHOW_SAVED_ID, "Show saved tabs bar").checked(show_saved),
         Item::new(SHOW_DL_ID, "Show download button").checked(dl_button),
+        Item::sep(),
         Item::cmd(CMD_SETTINGS, "Settings").key("Alt+S"),
         Item::cmd(CMD_CHECK_UPDATE, "Check for updates"),
         Item::sub("Backup and import", crate::import::menu_items()),

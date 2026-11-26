@@ -63,7 +63,9 @@ function applyColors(c) {
 
 function setTheme(isDark, notify) {
   dark = isDark;
+  const was = document.body.classList.contains('light');
   document.body.classList.toggle('light', !dark);
+  if (was !== !dark) retoneIcons();
   applyAccent();
   if (notify) {
     const cs = getComputedStyle(document.body);
@@ -127,8 +129,93 @@ function setIcon(el, t) {
     img.className = 'fav';
     img.src = key;
     img.onerror = () => img.remove();
+    toneIcon(img, key);
     el._ico.appendChild(img);
   }
+}
+
+// Site icons in Suppa's theme (light / dark), not the system's:
+//  * An SVG icon that changes colour by itself (Rust's: white on dark systems)
+//    follows the system setting, so it is shown as a copy set to Suppa's theme.
+//  * An icon of one plain colour on a see-through background (GitHub's white
+//    cat, a black logo) gets class "ic-w" (white) or "ic-b" (black); the page
+//    inverts "ic-w" in the light theme and "ic-b" in the dark one.
+//  * Coloured icons and icons with their own background are left alone.
+// Only icons whose site allows reading them can be checked (most icon servers do).
+const ICON_TONE = new Map();
+function iconTone(url) {
+  return new Promise((done) => {
+    const probe = new Image();
+    probe.onerror = () => done('');
+    probe.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = c.height = 24;
+        const g = c.getContext('2d');
+        g.drawImage(probe, 0, 0, 24, 24);
+        const d = g.getImageData(0, 0, 24, 24).data;
+        let clear = 0, solid = 0, white = 0, black = 0, colour = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 60) { clear++; continue; }
+          solid++;
+          const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 40) colour++;
+          else if (l > 200) white++;
+          else if (l < 60) black++;
+        }
+        const see = clear / (clear + solid) > 0.2 && colour < solid * 0.08;
+        done(!see || !solid ? '' : white > solid * 0.85 ? 'w' : black > solid * 0.85 ? 'b' : '');
+      } catch (e) { done(''); }
+    };
+    probe.src = url;
+  });
+}
+// -> { tone: '' | 'w' | 'b', src: address to show (a themed copy for adaptive SVGs) }
+async function checkIcon(src, light) {
+  try {
+    const r = await fetch(src, { mode: 'cors', credentials: 'omit' });
+    if (!r.ok) return { tone: '', src };
+    const blob = await r.blob();
+    if (/svg/.test(blob.type) || /\.svg(\?|$)/i.test(src)) {
+      const text = await blob.text();
+      if (/prefers-color-scheme/i.test(text)) {
+        // Set the icon's own light/dark choice to Suppa's theme.
+        const yes = 'min-width: 0px', no = 'max-width: 0px) and (min-width: 1px';
+        const fixed = text
+          .replace(/prefers-color-scheme\s*:\s*dark/gi, light ? no : yes)
+          .replace(/prefers-color-scheme\s*:\s*light/gi, light ? yes : no);
+        return { tone: '', src: URL.createObjectURL(new Blob([fixed], { type: 'image/svg+xml' })) };
+      }
+    }
+    return { tone: await iconTone(URL.createObjectURL(blob)), src };
+  } catch (e) {
+    return { tone: '', src };   // the site does not allow reading its icon
+  }
+}
+function toneIcon(img, src) {
+  if (!/^https?:/.test(src)) return;
+  img._tone = src;
+  const light = document.body.classList.contains('light');
+  const key = src + (light ? ' light' : ' dark');
+  img._key = key;
+  // only the answer for the current theme counts (an older check may finish later)
+  const set = (v) => {
+    if (img._key !== key || !v) return;
+    img.classList.toggle('ic-w', v.tone === 'w');
+    img.classList.toggle('ic-b', v.tone === 'b');
+    if (img.getAttribute('src') !== v.src) img.src = v.src;
+  };
+  let t = ICON_TONE.get(key);
+  if (t === undefined) {
+    t = checkIcon(src, light);
+    ICON_TONE.set(key, t);
+    t.then((v) => ICON_TONE.set(key, v));
+  }
+  if (t instanceof Promise) t.then(set); else set(t);
+}
+// The theme changed: check the shown icons again (after the new colours apply).
+function retoneIcons() {
+  setTimeout(() => document.querySelectorAll('img').forEach((i) => { if (i._tone) toneIcon(i, i._tone); }), 60);
 }
 
 // ---------- tab groups: a coloured label in front of the group's tabs ----------
@@ -180,8 +267,13 @@ function startGroupRename(id) {
     done = true;
     const v = inp.value.trim();
     inp.remove();
-    if (ok) post({ cmd: 'group_rename', id, name: v });
-    else renderTabs();
+    if (ok) {
+      // Shown right away (the browser confirms with the next sync).
+      const g = (state.groups || []).find((x) => x.id === id);
+      if (g) g.name = v;
+      post({ cmd: 'group_rename', id, name: v });
+    }
+    renderTabs();
   };
   inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') finish(false); e.stopPropagation(); });
   inp.addEventListener('blur', () => { if (Date.now() - started < 600) { setTimeout(() => inp.focus(), 50); return; } finish(true); });
@@ -480,6 +572,7 @@ function renderSaved() {
       const img = document.createElement('img');
       img.src = n.i;
       img.onerror = () => { img.replaceWith(document.createRange().createContextualFragment(GLOBE_ICON)); };
+      toneIcon(img, n.i);
       el.appendChild(img);
       el.title = n.t + '\n' + n.u;
     } else {
@@ -632,8 +725,14 @@ function startRename(path) {
   const finish = (ok) => {
     if (done) return;
     done = true;
-    if (ok && inp.value.trim()) post({ cmd: 'saved_rename', path, title: inp.value.trim() });
-    else renderSaved();
+    const v = inp.value.trim();
+    // Shown right away: the browser only answers when the list really changed.
+    const n = saved[path[0]];
+    if (ok && v && n) {
+      if (isFolder(n)) n.f = v; else n.t = v;
+      post({ cmd: 'saved_rename', path, title: v });
+    }
+    renderSaved();
   };
   inp.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') finish(true);
@@ -1005,6 +1104,14 @@ addr.addEventListener('keydown', (e) => {
 addr.addEventListener('blur', () => { addr.value = state.url; });
 
 // No browser context menu / text drag on the bar itself.
+// A rename box (saved tab, folder, tab group) ends when you click anywhere else
+// in the bar, or anywhere outside it (the page, another window).
+const blurRename = (e) => {
+  const a = document.activeElement;
+  if (a && a.matches && a.matches('input.rename') && (!e || e.target !== a)) a.blur();
+};
+document.addEventListener('pointerdown', blurRename, true);
+window.addEventListener('blur', () => blurRename());
 document.addEventListener('contextmenu', (e) => { if (e.target !== addr && !e.target.closest('input.rename')) e.preventDefault(); });
 
 post({ cmd: 'ready' });

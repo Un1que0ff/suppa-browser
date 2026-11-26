@@ -123,7 +123,9 @@ body.detaching, body.detaching * { cursor: copy !important; }
 .gchip.noname { padding: 0; min-width: 26px; justify-content: center; }
 .gchip.collapsed { opacity: .85; }
 .gchip:hover { filter: brightness(1.1); }
-.gchip input.rename { width: 110px; height: 20px; }
+.gchip .gname:has(input) { display: flex; align-items: center; overflow: visible; }
+/* same height as the other rename boxes, so the text sits in the middle */
+.gchip input.rename { width: 110px; height: 22px; font-weight: 600; }
 body.tabs-below .gchip { margin: 3px 3px 0 0; }
 /* tabs of a group use the group's colour as their accent: tinted, and the
    selected one filled with it (text colour set by ui.js, like the accent) */
@@ -162,6 +164,9 @@ body.tabs-below #row1 #winctl { align-self: center; }
 #grip-tr { right: 0; width: 8px; cursor: ne-resize; }
 body.max .grip { display: none; }
 
+/* one-colour site icons that would vanish in this theme (see toneIcon in ui.js) */
+body.light img.ic-w, body:not(.light) img.ic-b { filter: invert(1); }
+
 #frame-top, #shead { display: none; }
 /* Where the page is (the page window covers it); its outline is the line
    between the bar rows and the page. */
@@ -177,7 +182,12 @@ body.max .grip { display: none; }
   background: var(--field); border: 1px solid var(--border); border-radius: var(--r-btn); overflow: hidden;
 }
 /* Accent outlines are 2px everywhere (1px border + 1px inner ring, so nothing moves). */
-#addr-box:focus-within { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+/* one real 2px border (a border + inner shadow have different curves in the
+   corners); the text and star move 1px back so nothing shifts */
+#addr-box:focus-within { border: 2px solid var(--accent); }
+#addr-box:focus-within #addr { padding-left: 11px; }
+#addr-box:focus-within #star { margin-right: 1px; }
+#addr-box:focus-within #inc-badge { margin-left: 3px; }
 #addr {
   flex: 1 1 auto; height: 100%; min-width: 0; background: transparent; color: var(--fg); border: none;
   padding: 0 12px; font: 400 10pt "Segoe UI", system-ui, sans-serif; outline: none; user-select: text;
@@ -240,7 +250,7 @@ body.saved #row3 { display: flex; }
 }
 input.rename {
   height: 22px; width: 150px; background: var(--field); color: var(--fg); border: 2px solid var(--accent);
-  border-radius: var(--r-xs); padding: 0 6px; font: 400 10pt "Segoe UI", system-ui, sans-serif; outline: none;
+  border-radius: var(--r-xs); padding: 0 6px; font: 400 10pt/18px "Segoe UI", system-ui, sans-serif; outline: none;
 }
 
 /* ---------- row resize handles (thin lines under each row) ---------- */
