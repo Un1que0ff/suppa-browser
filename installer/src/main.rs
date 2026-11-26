@@ -36,7 +36,8 @@ const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstal
 const WEBVIEW2_ID: &str = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
 /// Interface files that are updated on every install. Everything else in
 /// scripts\ (your filter rules, your user scripts) is only added if missing.
-const UPDATED_FILES: [&str; 11] = [
+const UPDATED_FILES: [&str; 12] = [
+    "scripts/youtube.js",
     "scripts/ui.html",
     "scripts/ui.css",
     "scripts/ui.js",

@@ -14,7 +14,8 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 - **Fast** - the window and its toolbar are ready in about **0.2 s**; the ad blocker is ready in **25 ms**.
 - **Light on CPU and RAM** - background tabs fall asleep and unload automatically; about **0.1 % of one CPU core** when idle.
 - **Private** - no account, no telemetry, no analytics. Suppa itself never sends anything about you anywhere (details below).
-- **Ad and tracker blocker built in** - Brave's ad-block engine with EasyList, EasyPrivacy, uBlock filters and cookie-banner lists, plus your own rules.
+- **Ad and tracker blocker built in** - Brave's ad-block engine with EasyList, EasyPrivacy, uBlock filters and quick fixes and cookie-banner lists, plus your own rules.
+- **YouTube ads skipped** - ads that still get through are muted, jumped to their end and skipped automatically; ad slots in the feed and next to videos are hidden.
 - **Cookie popups handled for you** - "Accept all" is clicked automatically (can be turned off).
 - **Chrome extensions** - install from the Chrome Web Store with **Add to Suppa**, with buttons and popups next to the address bar.
 - **Tab groups** - drag a tab onto another and hold: they form a coloured, collapsible group.
@@ -222,6 +223,7 @@ Everything in `scripts\` next to `Suppa.exe` can be edited:
 | `menu.html` | all menus and dialogs |
 | `settings.html` | the Settings tab (groups as tabs on the left: Appearance, Corners, Layout, Custom colours, Start and search, Tabs and memory, Privacy, Passwords, Extensions, Backup and import, Update and files) |
 | `cookies.js` | which cookie buttons are clicked |
+| `youtube.js` | the YouTube ad skipper (runs on youtube.com while the ad blocker is on there) |
 | `webstore.js` | the Chrome Web Store "Add to Suppa" helper |
 | `newtab.html` | the optional Suppa start page (search and most-used sites) |
 | `history.html`, `downloads.html` | the History and Downloads pages |

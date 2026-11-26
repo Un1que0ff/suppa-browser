@@ -485,13 +485,24 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
         );
 
         let _ = wv.add_NavigationCompleted(
-            &NavigationCompletedEventHandler::create(Box::new(move |_, _| {
-                app::with(|s| {
+            &NavigationCompletedEventHandler::create(Box::new(move |sender, _| {
+                let page = app::with(|s| {
+                    let mut page = None;
                     if let Some(t) = s.tab_mut(id) {
                         t.loading = false;
+                        page = Some(t.doc_url.clone());
                     }
                     ui::update_tab_by_id(s, id);
-                });
+                    page.filter(|u| adblock_active_for(s, u))
+                })
+                .flatten();
+                // YouTube ad skipper, in case the per-page script came too late
+                // for this page (the script runs only once per page).
+                if let (Some(sender), Some(page)) = (sender, page) {
+                    if let Some(js) = adblock::youtube_late_script(&page) {
+                        let _ = sender.ExecuteScript(&HSTRING::from(js), None::<&ICoreWebView2ExecuteScriptCompletedHandler>);
+                    }
+                }
                 Ok(())
             })),
             &mut token,

@@ -20,10 +20,12 @@ use crate::app::WM_APP_ADBLOCK_READY;
 use crate::util;
 
 // Add or remove lists here; the cache rebuilds automatically when this changes.
-const LISTS: [(&str, &str); 4] = [
+const LISTS: [(&str, &str); 5] = [
     ("easylist.txt", "https://easylist.to/easylist/easylist.txt"),
     ("easyprivacy.txt", "https://easylist.to/easylist/easyprivacy.txt"),
     ("ublock-filters.txt", "https://ublockorigin.github.io/uAssets/filters/filters.txt"),
+    // uBlock Origin's fast-moving fixes (YouTube changes its ads every few weeks)
+    ("ublock-quick-fixes.txt", "https://ublockorigin.github.io/uAssets/filters/quick-fixes.txt"),
     ("cookie-banners.txt", "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt"),
 ];
 const RESOURCES: (&str, &str) = (
@@ -220,21 +222,34 @@ pub fn document_script(url: &str) -> String {
         let Some(engine) = e.as_ref() else { return String::new() };
         let res = engine.url_cosmetic_resources(url);
         let css = css_rules(res.hide_selectors.iter());
-        if css.is_empty() && res.injected_script.is_empty() {
+        let host = util::host_of(url);
+        // YouTube: Suppa's own ad skipper as well (scripts\youtube.js).
+        let yt = if is_youtube(&host) { crate::scripts::youtube_script() } else { "" };
+        if css.is_empty() && res.injected_script.is_empty() && yt.is_empty() {
             return String::new();
         }
-        let host = util::host_of(url);
         format!(
             "(function(){{try{{if(location.hostname!=={host})return;}}catch(e){{return;}}\n\
              var css={css};\n\
              if(css){{var add=function(){{var r=document.head||document.documentElement;if(!r)return false;var s=document.createElement('style');s.id='suppa-cosmetic';s.textContent=css;r.appendChild(s);return true;}};\
              if(!add())document.addEventListener('readystatechange',add,{{once:true}});}}\n\
-             {script}\n}})();",
+             {script}\n}})();\n{yt}",
             host = util::js_str(&host),
             css = util::js_str(&css),
             script = res.injected_script,
+            yt = yt,
         )
     })
+}
+
+pub fn is_youtube(host: &str) -> bool {
+    host == "youtube.com" || host.ends_with(".youtube.com")
+}
+
+/// The YouTube ad skipper for a page that has finished loading (in case the
+/// per-page script was registered too late for it; it runs only once per page).
+pub fn youtube_late_script(url: &str) -> Option<&'static str> {
+    (util::is_web_url(url) && is_youtube(&util::host_of(url)) && is_ready()).then(crate::scripts::youtube_script)
 }
 
 /// Collects class names / ids once the DOM is ready and sends them to the host

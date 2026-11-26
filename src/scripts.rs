@@ -10,7 +10,8 @@ use crate::util;
 pub const UI_URL: &str = "https://suppa.ui/ui.html";
 
 /// Default files, built into the exe so a missing folder is recreated.
-const DEFAULTS: [(&str, &str); 13] = [
+const DEFAULTS: [(&str, &str); 14] = [
+    ("youtube.js", include_str!("../scripts/youtube.js")),
     ("webstore.js", include_str!("../scripts/webstore.js")),
     ("menu.html", include_str!("../scripts/menu.html")),
     ("ui.html", include_str!("../scripts/ui.html")),
@@ -174,6 +175,12 @@ pub fn custom_filters() -> Vec<(String, String)> {
         .collect();
     out.sort();
     out
+}
+
+/// YouTube ad skipper (scripts\youtube.js), read once per start.
+pub fn youtube_script() -> &'static str {
+    static S: OnceLock<String> = OnceLock::new();
+    S.get_or_init(|| read_text("youtube.js").trim_start_matches('\u{feff}').to_string())
 }
 
 /// Cookie-banner clicker (scripts\cookies.js), read once per start.
