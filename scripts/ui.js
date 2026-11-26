@@ -512,9 +512,12 @@ function onTabDragEnd(e) {
   setTimeout(() => d.el.classList.remove('dragging'), ANIM_MS);
 }
 
+let addrTab = -1;   // the tab whose address the field shows
 function renderState() {
   const addr = $('addr');
-  if (document.activeElement !== addr) addr.value = state.url;
+  // While typing, the field is left alone; another tab always shows its own address.
+  if (document.activeElement !== addr || addrTab !== state.active) addr.value = state.url;
+  addrTab = state.active;
   const star = $('star');
   star.classList.toggle('on', !!state.star);
   star.disabled = !state.url || !!state.inc;

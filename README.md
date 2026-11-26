@@ -23,7 +23,8 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 - **Your look** - darker / dark / light / lighter theme, a tint over the whole interface, any accent colour (or the Windows accent), every interface colour, round or squircle corners, which tab corners are rounded, five icon styles, interface scale.
 - **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark import.
 - **Password manager** - see, search, copy and delete saved passwords (Windows Hello or your Windows password is asked first); import them from Firefox, Chrome, Edge or Brave and export them to a `.csv` file.
-- **History, downloads and shortcuts** - a searchable History page, a download button next to the address bar with progress, and your most-used sites with their icons on the start page.
+- **History, downloads and shortcuts** - a searchable History page, a download button next to the address bar that fills with your accent colour as files download, and your most-used sites with their icons on a start page in your theme.
+- **Site icons that fit your theme** - in tabs, saved tabs, History and on the start page; white icons turn dark in the light theme and black ones light in the dark theme.
 - **Updates itself** - checks GitHub once a day; installed with the setup, it updates with one click and shows what is new.
 - **Hackable** - the whole interface is plain HTML/CSS/JS in a folder next to the exe; edit it and press **Update**.
 
@@ -34,18 +35,18 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 | | |
 |---|---|
 | ![Dark theme](docs/screenshots/main-dark.png) | ![Light theme](docs/screenshots/main-light.png) |
-| **Dark theme** - tab group "Reading", saved tabs bar, extension-ready toolbar | **Light theme** |
+| **Dark theme** (blue accent) - tab group "Reading", saved tabs bar, download button next to the address bar | **Light theme** (indigo accent) - site icons adapt to the theme |
 | ![Menu](docs/screenshots/menu.png) | ![Side bar](docs/screenshots/side-tabs.png) |
-| **The ≡ menu** - every menu follows the browser's theme | **Bar on the left** - vertical tabs, address and saved tabs in one column |
+| **The ≡ menu** (orange accent) - every menu follows the browser's theme | **Bar on the left** (lime accent) - vertical tabs, address and saved tabs in one column |
 | ![Saved tabs folder](docs/screenshots/saved-folder.png) | ![Settings](docs/screenshots/settings.png) |
-| **Saved tabs** - folders open as menus; drag to sort | **Settings** - grouped in tabs on the left: look, corners, layout, privacy, passwords, backup, update |
+| **Saved tabs** (pink accent) - folders open as menus; drag to sort | **Settings** (yellow accent) - grouped in tabs on the left: look, corners, layout, privacy, passwords, backup, update |
 | ![Password manager](docs/screenshots/passwords.png) | ![Tabs on the left, red tint](docs/screenshots/layout-tint.png) |
-| **Password manager** - search, show, copy, delete; import from Firefox, Chrome, Edge or Brave and export to `.csv` | **Your layout and look** - tabs on the left, address bar on top, dark theme with a 20% red tint and squircle corners |
+| **Password manager** (red accent, demo entries) - search, show, copy, delete; import from Firefox, Chrome, Edge or Brave and export to `.csv` | **Your layout and look** (rose accent) - tabs on the left, address bar on top, dark theme with a 20% red tint |
 | ![History](docs/screenshots/history.png) | ![Start page and downloads](docs/screenshots/downloads-start.png) |
-| **History** (`Ctrl+H`) - grouped by day, with search | **Start page shortcuts** (your most-used sites) and the **downloads popup** |
+| **History** (`Ctrl+H`, purple accent) - grouped by day, with site icons and search | **Start page** (teal accent) - your most-used sites with their icons, and a download filling the download button |
 
 ![Custom colours](docs/screenshots/settings-colors.png)
-*Settings → Custom colours: change every colour of the interface (separately for the light and dark theme).*
+*Settings → Custom colours (cyan accent): change every colour of the interface (separately for the light and dark theme).*
 
 ---
 

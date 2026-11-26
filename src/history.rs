@@ -336,7 +336,7 @@ pub fn most_used(n: usize) -> serde_json::Value {
             .into_iter()
             .take(n)
             .map(|(site, (_, url, front, any, _))| {
-                let title = short_title(if front.is_empty() { &any } else { &front }, &site);
+                let title = short_title(if front.is_empty() { &any } else { &front }, &site, !front.is_empty());
                 let icon = with_icons(|m| m.get(&site).cloned()).unwrap_or_default();
                 serde_json::json!({ "url": url, "title": title, "host": site, "name": main_label(&site), "icon": icon })
             })
@@ -355,8 +355,9 @@ fn main_label(site: &str) -> String {
 
 /// A short name for a site from a page title: the part naming the site
 /// ("Rust (programming language) - Wikipedia" -> "Wikipedia",
-/// "GitHub · Change is constant" -> "GitHub"), else the site's address.
-fn short_title(title: &str, site: &str) -> String {
+/// "GitHub · Change is constant" -> "GitHub"); else the front page's own title
+/// ("Hacker News"); else the site's name ("Odoo") or address.
+fn short_title(title: &str, site: &str, front_page: bool) -> String {
     let label = main_label(site).replace('-', "");
     let mut t = title.to_string();
     for sep in [" - ", " | ", " · ", " \u{2014} ", " \u{2013} "] {
@@ -367,10 +368,20 @@ fn short_title(title: &str, site: &str) -> String {
     if !named.is_empty() && named.chars().count() <= 24 {
         return named.to_string();
     }
-    // No part names the site ("WH/MO/00189", "Before you continue"): the site's
-    // own name ("Odoo", "Google"), or its address for localhost / IP addresses.
+    // The front page's title names the site even without its address in it
+    // ("Hacker News" on news.ycombinator.com, "Rust Documentation").
+    if front_page {
+        if let Some(first) = parts.first().filter(|p| p.chars().count() <= 24) {
+            return first.to_string();
+        }
+    }
+    // Only a deeper page's title ("WH/MO/00189", "Before you continue"): the
+    // site's name ("Odoo", "Google"); for a subdomain ("doc.rust-lang.org"),
+    // localhost or an IP address, its address.
     let word = main_label(site);
-    if word.len() > 1 && word.chars().all(|c| c.is_ascii_alphabetic() || c == '-') && word.starts_with(|c: char| c.is_ascii_alphabetic()) && word != "localhost" {
+    let host = site.split(':').next().unwrap_or(site);
+    let sub = host.split('.').count() > 2;
+    if !sub && word.len() > 1 && word.chars().all(|c| c.is_ascii_alphabetic() || c == '-') && word.starts_with(|c: char| c.is_ascii_alphabetic()) && word != "localhost" {
         let mut c = word.chars();
         c.next().map(|f| f.to_ascii_uppercase().to_string() + c.as_str()).unwrap_or_default()
     } else {
