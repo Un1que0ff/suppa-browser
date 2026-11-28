@@ -1,5 +1,7 @@
 # Suppa Browser
 
+<a href="https://www.buymeacoffee.com/Un1que0ff"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=Un1que0ff&button_colour=BD5FFF&font_colour=ffffff&font_family=Bree&outline_colour=000000&coffee_colour=FFDD00" /></a>
+
 **English** · [Русский](README.ru.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [中文](README.zh.md)
 
 **A tiny, fast, private web browser for Windows (and now Linux) - a single 3 MB `.exe` with a built-in ad blocker, Chrome extensions, tab groups and a fully customisable interface.**

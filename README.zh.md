@@ -1,5 +1,7 @@
 # Suppa Browser
 
+<a href="https://www.buymeacoffee.com/Un1que0ff"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=Un1que0ff&button_colour=BD5FFF&font_colour=ffffff&font_family=Bree&outline_colour=000000&coffee_colour=FFDD00" /></a>
+
 [English](README.md) · [Русский](README.ru.md) · [Deutsch](README.de.md) · [Español](README.es.md) · **中文**
 
 **一款小巧、快速、注重隐私的 Windows（及 Linux）浏览器：单个约 3 MB 的 `.exe`，内置广告拦截、Chrome 扩展、标签页分组和可完全自定义的界面。**
