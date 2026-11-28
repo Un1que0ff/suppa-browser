@@ -469,12 +469,14 @@ fn on_message(json: &str) {
             crate::saved::sync();
             crate::extensions::toolbar_sync();
             crate::downloads::sync_bar();
+            crate::media::sync_bar();
             // Once per start (not after an Update restart): offer to become the default browser.
             let first = !DEFAULT_ASKED.with(|a| a.replace(true));
             if first && !std::env::args().any(|a| a == "--restart" || a == "--window") {
                 crate::default_browser::maybe_ask(corner_anchor());
             }
             if first {
+                crate::sync::sync_now(); // Dropbox (when turned on)
                 crate::passwords::show_result(); // after a password import
                 crate::passwords::import_from_args();
                 crate::updater::on_ready(); // What's new, daily update check
@@ -554,6 +556,7 @@ fn on_message(json: &str) {
                 "extensions" => CMD_EXT_MENU,
                 "adblock" => CMD_ADBLOCK_MENU,
                 "downloads" => CMD_DL_POPUP,
+                "player" => CMD_PLAYER_POPUP,
                 _ => CMD_MENU,
             };
             util::post(hwnd, WM_APP_COMMAND, cmd as usize, 0);
@@ -582,6 +585,12 @@ fn on_message(json: &str) {
             }
         }
         "focus_page" => focus_webview(),
+        // Speaker on a tab: mute / unmute it.
+        "tab_mute" => {
+            if let Some(id) = app::with(|s| s.tabs.get(num("index") as usize).map(|t| t.id)).flatten() {
+                crate::media::toggle_mute(id);
+            }
+        }
         _ => {}
     }
 }
@@ -599,11 +608,79 @@ pub fn push_theme() {
             "pos": { "tabs": st.tabs_pos, "nav": st.nav_pos, "saved": st.saved_pos },
             "tab_corners": st.tab_corners, "squircle": st.corner_shape == "squircle",
             "theme": st.theme_name(), "icons": st.icon_pack,
+            "lang": crate::i18n::resolve(&st.language),
         })
         .to_string()
     });
     if let Some(json) = r {
         post_json(json);
+    }
+}
+
+fn personalize(name: &windows::core::HSTRING) -> Option<u32> {
+    use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
+    let mut v = 0u32;
+    let mut size = 4u32;
+    unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+            name,
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut v as *mut u32 as *mut _),
+            Some(&mut size),
+        )
+        .ok().ok()?;
+    }
+    Some(v)
+}
+
+/// Windows apps use the light theme (Settings -> Personalization -> Colors -> app mode).
+pub fn windows_light() -> bool {
+    personalize(&windows::core::HSTRING::from("AppsUseLightTheme")).unwrap_or(0) != 0
+}
+
+/// The taskbar / Windows itself is light (decides the icon colour there).
+pub fn windows_system_light() -> bool {
+    personalize(&windows::core::HSTRING::from("SystemUsesLightTheme")).unwrap_or(0) != 0
+}
+
+/// Window + taskbar icon: white on a dark Windows theme, black on a light one
+/// (icons 1 and 2 compiled in by build.rs, without a background).
+pub fn apply_icon(hwnd: HWND) {
+    unsafe {
+        let hinst = windows::Win32::System::LibraryLoader::GetModuleHandleW(None).unwrap_or_default();
+        let id = if windows_system_light() { 2usize } else { 1 };
+        for (which, metric_x, metric_y) in [(ICON_BIG, SM_CXICON, SM_CYICON), (ICON_SMALL, SM_CXSMICON, SM_CYSMICON)] {
+            if let Ok(h) = LoadImageW(Some(hinst.into()), windows::core::PCWSTR(id as *const u16), IMAGE_ICON, GetSystemMetrics(metric_x), GetSystemMetrics(metric_y), LR_DEFAULTCOLOR) {
+                SendMessageW(hwnd, WM_SETICON, Some(windows::Win32::Foundation::WPARAM(which as usize)), Some(windows::Win32::Foundation::LPARAM(h.0 as isize)));
+            }
+        }
+    }
+}
+
+/// Windows switched light / dark: the icon follows, and so does Suppa's theme
+/// when it is set to "System".
+pub fn on_windows_theme_changed() {
+    apply_icon(app::hwnd());
+    let changed = app::with(|s| {
+        if !s.settings.theme_system {
+            return false;
+        }
+        let dark = !windows_light();
+        if s.settings.dark == dark {
+            return false;
+        }
+        s.settings.set_dark(dark);
+        s.ui.dark = dark;
+        settings::save(&s.settings);
+        true
+    })
+    .unwrap_or(false);
+    if changed {
+        push_theme();
+        crate::settings_page::broadcast();
     }
 }
 
@@ -729,7 +806,11 @@ pub fn sync_now() {
                 };
                 // No favicon request from the bar for incognito tabs.
                 let fav = if t.incognito || !t.favicon.starts_with("http") { "" } else { t.favicon.as_str() };
-                serde_json::json!({ "id": t.id, "t": tab_title(t), "s": state, "i": t.incognito, "f": fav, "g": t.group })
+                serde_json::json!({
+                    "id": t.id, "t": tab_title(t), "s": state, "i": t.incognito, "f": fav, "g": t.group,
+                    // sound: playing / muted / own volume; kept awake
+                    "a": t.audible, "m": t.muted, "v": t.volume, "k": t.awake,
+                })
             })
             .collect();
         let maximized = unsafe { IsZoomed(s.hwnd).as_bool() };
@@ -782,7 +863,7 @@ pub fn tab_title(t: &app::Tab) -> String {
     if !t.title.is_empty() {
         t.title.clone()
     } else if newtab::is_newtab(&t.url) {
-        "New Tab".to_string()
+        crate::i18n::tr("New Tab")
     } else {
         util::host_of(&t.url)
     }

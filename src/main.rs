@@ -25,6 +25,11 @@
 //   pages.rs       History and Downloads pages (suppa.history / suppa.downloads)
 //   updater.rs     updates from GitHub releases, What's new
 //   sqlite.rs      Windows' SQLite (the engine's password and history files)
+//   vault.rs       addresses, cards, PayPal, generated passwords; filling forms
+//   sync.rs        sync / share the vault through a Dropbox folder
+//   i18n.rs        interface language (scripts\lang.json)
+//   media.rs       player button and popup, per-tab volume and mute
+//   savemedia.rs   Save video / Save as MP3 (yt-dlp + FFmpeg)
 #![windows_subsystem = "windows"]
 
 mod adblock;
@@ -37,6 +42,11 @@ mod default_browser;
 mod downloads;
 mod extpopup;
 mod groups;
+mod i18n;
+mod media;
+mod savemedia;
+mod sync;
+mod vault;
 mod history;
 mod import;
 mod newtab;

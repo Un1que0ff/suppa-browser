@@ -23,6 +23,9 @@ pub struct Settings {
     pub accent: String,
     /// Click "Accept all" on cookie banners automatically (scripts\cookies.js).
     pub auto_cookies: bool,
+    /// What the cookie-banner clicker answers: "necessary" (reject all / only
+    /// necessary) or "all" (accept all). auto_cookies = false turns it off.
+    pub cookie_mode: String,
     /// Look for a new Suppa on GitHub once a day.
     pub auto_update: bool,
     /// Offer to save passwords and fill them in.
@@ -33,6 +36,17 @@ pub struct Settings {
     pub show_saved: bool,
     /// Download button next to the address bar.
     pub dl_button: bool,
+    /// Player button next to the download button (shown while something plays).
+    pub player_button: bool,
+    /// Suppa's own form filling: addresses, cards, PayPal, saved and generated
+    /// passwords (a key button in the field, scripts\forms.js).
+    pub fill_forms: bool,
+    /// Offer to save addresses and cards typed into forms.
+    pub offer_save: bool,
+    /// Sync passwords, addresses and cards through a Dropbox folder.
+    pub sync_on: bool,
+    /// Folder used for syncing; empty = the Dropbox folder found on this PC.
+    pub sync_folder: String,
     /// Ask on start to make Suppa the default browser.
     pub ask_default: bool,
     /// Heights (CSS px) of the tabs row, address-bar row and saved-tabs row.
@@ -57,6 +71,12 @@ pub struct Settings {
     pub saved_pos: String,
     /// Theme: "dark", "darker", "light" or "lighter" (dark = dark or darker).
     pub theme: String,
+    /// Light or dark follows Windows (Settings -> Personalization -> Colors).
+    /// On for new installs; picking a theme yourself turns it off.
+    pub theme_system: bool,
+    /// Interface language: "auto" (Windows' language, else English), "en",
+    /// "ru", "de", "es" or "zh" (see i18n.rs, scripts\lang.json).
+    pub language: String,
     /// Tint over the whole interface: "#rrggbb" and how strong in percent (0 = off).
     pub tint: String,
     pub tint_amount: i32,
@@ -253,13 +273,20 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             home: DEFAULT_HOME.to_string(),
-            accent: "cycle".to_string(),
+            // The Windows accent colour until you pick another.
+            accent: "windows".to_string(),
             auto_cookies: true,
+            cookie_mode: "necessary".to_string(),
             auto_update: true,
             save_passwords: true,
             autofill: true,
             show_saved: true,
             dl_button: true,
+            player_button: true,
+            fill_forms: true,
+            offer_save: true,
+            sync_on: false,
+            sync_folder: String::new(),
             ask_default: true,
             row_tabs: ROW_TABS.1,
             row_nav: ROW_NAV.1,
@@ -273,6 +300,8 @@ impl Default for Settings {
             nav_pos: "top".to_string(),
             saved_pos: "top".to_string(),
             theme: "dark".to_string(),
+            theme_system: true,
+            language: "auto".to_string(),
             tint: "#ff0000".to_string(),
             tint_amount: TINT.1,
             tab_corners: "auto".to_string(),
@@ -332,11 +361,27 @@ pub fn valid_accent(v: &str) -> String {
     if ok { v.to_ascii_lowercase() } else { "cycle".to_string() }
 }
 
+/// Windows uses the light theme (Linux: shared file, follows nothing here).
+fn system_light() -> bool {
+    #[cfg(windows)]
+    {
+        crate::ui::windows_light()
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
 pub fn load() -> Settings {
     let mut s = Settings::default();
     let Ok(text) = std::fs::read_to_string(data_dir().join("settings.ini")) else {
+        // First start: light or dark as in Windows.
+        s.set_dark(!system_light());
         return s;
     };
+    // Older settings files chose their theme themselves.
+    s.theme_system = false;
     for line in text.lines() {
         let Some((k, v)) = line.split_once('=') else { continue };
         let v = v.trim();
@@ -347,6 +392,8 @@ pub fn load() -> Settings {
             "discard_minutes" => s.discard_minutes = v.parse().unwrap_or(30),
             "restore_session" => s.restore_session = v != "0",
             "theme" => s.set_theme(v),
+            "theme_system" => s.theme_system = v != "0",
+            "language" => s.language = if v.is_empty() { "auto".to_string() } else { v.to_string() },
             "tint" => s.tint = valid_tint(v),
             "tint_amount" => s.tint_amount = clamp_row(v.parse().unwrap_or(TINT.1), TINT),
             "tab_corners" => s.tab_corners = valid_tab_corners(v),
@@ -355,11 +402,17 @@ pub fn load() -> Settings {
             "home" => s.home = if v.is_empty() { DEFAULT_HOME.to_string() } else { v.to_string() },
             "accent" => s.accent = valid_accent(v),
             "cookies" => s.auto_cookies = v != "0",
+            "cookie_mode" => s.cookie_mode = if v == "all" { "all" } else { "necessary" }.to_string(),
             "auto_update" => s.auto_update = v != "0",
             "passwords" => s.save_passwords = v != "0",
             "autofill" => s.autofill = v != "0",
             "saved_bar" => s.show_saved = v != "0",
             "dl_button" => s.dl_button = v != "0",
+            "player_button" => s.player_button = v != "0",
+            "fill_forms" => s.fill_forms = v != "0",
+            "offer_save" => s.offer_save = v != "0",
+            "sync_on" => s.sync_on = v != "0",
+            "sync_folder" => s.sync_folder = v.to_string(),
             "ask_default" => s.ask_default = v != "0",
             "row_tabs" => s.row_tabs = clamp_row(v.parse().unwrap_or(ROW_TABS.1), ROW_TABS),
             "row_nav" => s.row_nav = clamp_row(v.parse().unwrap_or(ROW_NAV.1), ROW_NAV),
@@ -413,6 +466,9 @@ pub fn load() -> Settings {
             _ => {}
         }
     }
+    if s.theme_system {
+        s.set_dark(!system_light());
+    }
     s
 }
 
@@ -424,17 +480,19 @@ pub fn save(s: &Settings) {
     out.push_str(&format!("sleep_minutes={}\n", s.sleep_minutes));
     out.push_str(&format!("discard_minutes={}\n", s.discard_minutes));
     out.push_str(&format!("restore_session={}\n", s.restore_session as u8));
-    out.push_str(&format!("theme={}\n", s.theme_name()));
+    out.push_str(&format!("theme={}\ntheme_system={}\nlanguage={}\n", s.theme_name(), s.theme_system as u8, s.language));
     out.push_str(&format!("tint={}\ntint_amount={}\n", s.tint, s.tint_amount));
     out.push_str(&format!("tab_corners={}\ncorner_shape={}\nicon_pack={}\n", s.tab_corners, s.corner_shape, s.icon_pack));
     out.push_str(&format!("home={}\n", s.home));
     out.push_str(&format!("accent={}\n", s.accent));
-    out.push_str(&format!("cookies={}\n", s.auto_cookies as u8));
+    out.push_str(&format!("cookies={}\ncookie_mode={}\n", s.auto_cookies as u8, s.cookie_mode));
     out.push_str(&format!("auto_update={}\n", s.auto_update as u8));
     out.push_str(&format!("passwords={}\n", s.save_passwords as u8));
     out.push_str(&format!("autofill={}\n", s.autofill as u8));
     out.push_str(&format!("saved_bar={}\n", s.show_saved as u8));
     out.push_str(&format!("dl_button={}\n", s.dl_button as u8));
+    out.push_str(&format!("player_button={}\nfill_forms={}\noffer_save={}\n", s.player_button as u8, s.fill_forms as u8, s.offer_save as u8));
+    out.push_str(&format!("sync_on={}\nsync_folder={}\n", s.sync_on as u8, s.sync_folder));
     out.push_str(&format!("ask_default={}\n", s.ask_default as u8));
     out.push_str(&format!("row_tabs={}\nrow_nav={}\nrow_saved={}\n", s.row_tabs, s.row_nav, s.row_saved));
     out.push_str(&format!("lock_sizes={}\n", s.lock_sizes as u8));

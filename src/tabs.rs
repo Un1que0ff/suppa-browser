@@ -472,6 +472,9 @@ pub fn session_urls() -> (Vec<String>, usize, Vec<String>) {
             if t.group != 0 {
                 meta.push(format!("#tabgroup\t{}\t{}", urls.len(), t.group));
             }
+            if t.awake {
+                meta.push(format!("#awake\t{}", urls.len()));
+            }
             urls.push(t.url.clone());
         }
         (urls, active, meta)
@@ -483,4 +486,85 @@ pub fn session_urls() -> (Vec<String>, usize, Vec<String>) {
 pub fn save_session_now() {
     let (urls, active, meta) = session_urls();
     crate::settings::save_session(&urls, active, &meta);
+}
+
+/// Keep awake on/off: the tab is never frozen or unloaded in the background.
+pub fn toggle_awake(idx: usize) {
+    let r = app::with(|s| {
+        let t = s.tabs.get_mut(idx)?;
+        t.awake = !t.awake;
+        let on = t.awake;
+        let wv = t.webview.clone();
+        if on {
+            t.suspended = false;
+        }
+        ui::update_tab_item(s, idx);
+        Some((on, wv))
+    })
+    .flatten();
+    // A tab that is asleep right now wakes up.
+    if let Some((true, Some(wv))) = r {
+        unsafe {
+            if let Ok(w3) = windows::core::Interface::cast::<ICoreWebView2_3>(&wv) {
+                let _ = w3.Resume();
+            }
+        }
+    }
+    crate::ui::request_sync();
+}
+
+pub fn toggle_awake_active() {
+    if let Some(i) = app::with(|s| s.active) {
+        toggle_awake(i);
+    }
+}
+
+/// Ctrl+Shift+PageUp / PageDown: the selected tab one place left / right.
+pub fn move_active(delta: i32) {
+    let Some((i, n)) = app::with(|s| (s.active, s.tabs.len())) else { return };
+    let j = i as i32 + delta;
+    if j >= 0 && (j as usize) < n {
+        move_tab(i, j as usize);
+    }
+}
+
+/// Ctrl+U: the page's source in a new tab.
+pub fn view_source() {
+    let url = app::with(|s| s.active_tab().map(|t| t.url.clone())).flatten().unwrap_or_default();
+    if util::is_web_url(&url) {
+        new_tab(Some(format!("view-source:{url}")), true);
+    }
+}
+
+/// Ctrl+O: open a file from the PC in a new tab.
+pub fn open_file() {
+    if let Some(p) = util::open_dialog("Open file", "Web pages, PDF, images, text", "*.htm;*.html;*.pdf;*.svg;*.png;*.jpg;*.jpeg;*.gif;*.webp;*.txt;*.xml;*.json;*.mp4;*.mp3;*.webm") {
+        let url = format!("file:///{}", p.display().to_string().replace('\\', "/"));
+        new_tab(Some(url), true);
+    }
+}
+
+/// Ctrl+Shift+W: close every tab (the window closes).
+pub fn close_window() {
+    util::post(app::hwnd(), windows::Win32::UI::WindowsAndMessaging::WM_CLOSE, 0, 0);
+}
+
+/// Opens Settings at one page ("wallet", "passwords", ...), or switches the open
+/// Settings tab to it.
+pub fn open_settings_at(page: &str) {
+    let existing = app::with(|s| s.tabs.iter().position(|t| util::host_of(&t.url) == SETTINGS_HOST)).flatten();
+    match existing {
+        Some(i) => {
+            activate(i);
+            let wv = app::with(|s| s.tabs.get(i).and_then(|t| t.webview.clone())).flatten();
+            if let Some(wv) = wv {
+                unsafe {
+                    let _ = wv.ExecuteScript(&HSTRING::from(format!("location.hash = {}", util::js_str(page))), None::<&ICoreWebView2ExecuteScriptCompletedHandler>);
+                }
+            }
+        }
+        None => {
+            let _ = open(Some(format!("{SETTINGS_URL}#{page}")), true, false);
+        }
+    }
 }

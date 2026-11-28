@@ -34,6 +34,10 @@ pub const TIMER_SLEEP: usize = 1;
 pub const TIMER_WATCH: usize = 2;
 /// Saves the open tabs shortly after they change (so a crash loses nothing).
 pub const TIMER_SESSION: usize = 3;
+/// While the player popup is open: refreshes its video preview.
+pub const TIMER_MEDIA: usize = 4;
+/// Dropbox sync shortly after the vault changed (several changes = one sync).
+pub const TIMER_SYNC: usize = 5;
 
 // ---- Command IDs (buttons, menus, shortcuts) ----------------------------------
 pub const CMD_UPDATE: u16 = 90;
@@ -66,6 +70,31 @@ pub const CMD_DL_CHANGED: u16 = 149;
 pub const CMD_UPDATE_FOUND: u16 = 150;
 pub const CMD_NOTES_READY: u16 = 151;
 pub const CMD_DL_POLL: u16 = 152;
+// 150..160 is also CMD_SEARCH_BASE (search engines); new commands start at 160.
+pub const CMD_STAR: u16 = 160;
+pub const CMD_TOGGLE_SAVED_BAR: u16 = 161;
+pub const CMD_OPEN_MENU_KEY: u16 = 162;
+pub const CMD_MUTE_TAB: u16 = 163;
+pub const CMD_MOVE_TAB_LEFT: u16 = 164;
+pub const CMD_MOVE_TAB_RIGHT: u16 = 165;
+pub const CMD_OPEN_FILE: u16 = 166;
+pub const CMD_VIEW_SOURCE: u16 = 167;
+pub const CMD_KEEP_AWAKE: u16 = 168;
+pub const CMD_PLAYER: u16 = 169;
+pub const CMD_GEN_PASSWORD: u16 = 170;
+pub const CMD_WALLET: u16 = 171;
+pub const CMD_SYNC_DONE: u16 = 172;
+pub const CMD_SYNC_NOW: u16 = 173;
+pub const CMD_PASSWORDS: u16 = 174;
+pub const CMD_SHORTCUTS: u16 = 175;
+pub const CMD_CLOSE_ALL: u16 = 176;
+pub const CMD_SYNC_FOLDER: u16 = 177;
+pub const CMD_TOGGLE_PLAYER_BTN: u16 = 178;
+pub const CMD_SYNC_SOON: u16 = 179;
+pub const CMD_MEDIA_SAVED: u16 = 180;
+pub const CMD_SAVE_VIDEO: u16 = 181;
+pub const CMD_SAVE_MP3: u16 = 182;
+pub const CMD_PLAYER_POPUP: u16 = 183;
 
 pub const CMD_NEW_TAB: u16 = 100;
 pub const CMD_CLOSE_TAB: u16 = 101;
@@ -140,6 +169,15 @@ pub struct Tab {
     /// The last address written to the history from this tab (the first page
     /// of a tab opened with an address counts too, though `url` already has it).
     pub recorded: String,
+    /// Never put to sleep or unloaded in the background (tab menu -> Keep awake).
+    pub awake: bool,
+    /// Playing sound right now / muted by Suppa.
+    pub audible: bool,
+    pub muted: bool,
+    /// Volume of this tab only, 0..=100 (the page's own volume times this).
+    pub volume: u8,
+    /// What the page plays (scripts\media.js): title, artist, cover, state...
+    pub media: Option<serde_json::Value>,
 }
 
 /// A group of tabs (label + colour in the tab row).
@@ -159,6 +197,11 @@ impl Tab {
             cookie_script_id: None,
             group: 0,
             recorded: String::new(),
+            awake: false,
+            audible: false,
+            muted: false,
+            volume: 100,
+            media: None,
             id,
             controller: None,
             webview: None,

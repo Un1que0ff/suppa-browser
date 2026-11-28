@@ -23,7 +23,13 @@ if errorlevel 1 goto :fail_rust
 set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
 :rust_ok
 echo [1/4] Rust OK
+rem An older Rust, or one set up for another target, is brought up to date:
+rem Suppa needs Rust 1.85+ (edition 2024) with the MSVC target.
+rustup toolchain install stable --profile minimal --no-self-update >nul 2>nul
 rustup default stable >nul 2>nul
+rustup target add x86_64-pc-windows-msvc >nul 2>nul
+for /f "tokens=2 delims= " %%v in ('rustc --version 2^>nul') do set "RUSTVER=%%v"
+echo       rustc !RUSTVER!
 
 rem ---------------------------------------------------------------
 rem 2. Microsoft C++ Build Tools (linker + Windows SDK)

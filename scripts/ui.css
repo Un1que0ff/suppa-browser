@@ -343,3 +343,20 @@ button.nav { width: calc(var(--ctl) + 2px); height: var(--ctl); padding: 0; disp
   -webkit-mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0);
 }
 #dl.busy .fill, #dl.busy svg.on { opacity: 1; }
+
+/* Player button (next to the download button). */
+#player { width: var(--ctl); }
+#player[hidden] { display: none; }
+#player.playing svg { color: var(--accent); animation: suppa-beat 1.6s ease-in-out infinite; }
+@keyframes suppa-beat { 50% { transform: scale(1.12); } }
+/* Sound on a tab: speaker (click = mute); crossed out when muted. */
+.tab .snd {
+  flex: 0 0 18px; height: 18px; border-radius: 9px; display: none; align-items: center; justify-content: center; opacity: .8;
+}
+.tab.audible .snd, .tab.muted .snd { display: flex; }
+.tab .snd:hover { opacity: 1; background: rgba(127,127,127,.35); }
+.tab .snd svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+/* Kept awake (never sleeps): a small sun before the title. */
+.tab .awk { display: none; flex: 0 0 12px; height: 12px; opacity: .7; }
+.tab.awake .awk { display: block; }
+.tab .awk svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }

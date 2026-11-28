@@ -41,11 +41,16 @@ pub fn on_message(wv: &ICoreWebView2, json: &str) {
                 "history" => CMD_HISTORY,
                 "downloads" => CMD_DOWNLOADS,
                 "load_unpacked" => CMD_EXT_LOAD_UNPACKED,
+                "shortcuts" => CMD_SHORTCUTS,
+                "sync_now" => CMD_SYNC_NOW,
+                "sync_folder" => CMD_SYNC_FOLDER,
                 _ => return,
             };
             // Posted, so message boxes never run inside this WebView event.
             util::post(app::hwnd(), WM_APP_COMMAND, cmd as usize, 0);
         }
+        // Addresses, cards, PayPal, Suppa's passwords, generator, Dropbox sync.
+        "wallet" => crate::vault::on_settings_message(wv, &v),
         // Password manager: {cmd:"pw", op, realm, user}
         "pw" => {
             let s = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
@@ -115,7 +120,7 @@ pub fn broadcast() {
 pub fn send_state(wv: &ICoreWebView2) {
     let json = app::with(|s| {
         let st = &s.settings;
-        serde_json::json!({
+        let mut j = serde_json::json!({
             "type": "settings",
             "home": st.home,
             "search": st.search,
@@ -155,8 +160,24 @@ pub fn send_state(wv: &ICoreWebView2) {
             "engine": s.browser_version,
             "scripts": crate::scripts::dir().display().to_string(),
             "data": util::data_dir().display().to_string(),
-        })
-        .to_string()
+        });
+        // Added separately (one json! this long hits the macro's recursion limit).
+        if let Some(m) = j.as_object_mut() {
+            m.insert("cookie_mode".into(), st.cookie_mode.clone().into());
+            m.insert("language".into(), st.language.clone().into());
+            m.insert("lang".into(), crate::i18n::resolve(&st.language).into());
+            m.insert("windows_lang".into(), crate::i18n::windows_lang().into());
+            m.insert("languages".into(), serde_json::json!(crate::i18n::names()));
+            if st.theme_system {
+                m.insert("theme".into(), "system".into());
+            }
+            m.insert("fill_forms".into(), st.fill_forms.into());
+            m.insert("offer_save".into(), st.offer_save.into());
+            m.insert("sync_on".into(), st.sync_on.into());
+            m.insert("player_button".into(), st.player_button.into());
+            m.insert("dl_button".into(), st.dl_button.into());
+        }
+        j.to_string()
     });
     if let Some(json) = json {
         unsafe {
@@ -174,6 +195,9 @@ fn set(key: &str, v: &serde_json::Value) {
     let mut adblock_changed = false;
     let mut cookies_changed = false;
     let mut layout_changed = false;
+    let mut sync_changed = false;
+    let mut bar_buttons = false;
+    let mut lang_changed = false;
     app::with(|s| {
         let st = &mut s.settings;
         match key {
@@ -187,11 +211,19 @@ fn set(key: &str, v: &serde_json::Value) {
             }
             "search" => st.search = (n as usize).min(SEARCH_ENGINES.len() - 1),
             "dark" => {
+                st.theme_system = false;
                 st.set_dark(b);
                 s.ui.dark = b;
                 theme_changed = true;
             }
+            "theme" if text == "system" => {
+                st.theme_system = true;
+                st.set_dark(!ui::windows_light());
+                s.ui.dark = st.dark;
+                theme_changed = true;
+            }
             "theme" => {
+                st.theme_system = false;
                 st.set_theme(&text);
                 s.ui.dark = st.dark;
                 theme_changed = true;
@@ -276,6 +308,29 @@ fn set(key: &str, v: &serde_json::Value) {
                 st.autofill = b;
                 autofill_changed = true;
             }
+            "cookie_mode" => {
+                st.cookie_mode = if text == "all" { "all" } else { "necessary" }.to_string();
+                cookies_changed = true;
+            }
+            "language" => {
+                st.language = if crate::i18n::LANGS.contains(&text.as_str()) { text.clone() } else { "auto".to_string() };
+                theme_changed = true;
+                lang_changed = true;
+            }
+            "fill_forms" => st.fill_forms = b,
+            "offer_save" => st.offer_save = b,
+            "sync_on" => {
+                st.sync_on = b;
+                sync_changed = true;
+            }
+            "player_button" => {
+                st.player_button = b;
+                bar_buttons = true;
+            }
+            "dl_button" => {
+                st.dl_button = b;
+                bar_buttons = true;
+            }
             "restore" => st.restore_session = b,
             "auto_update" => st.auto_update = b,
             "saved_bar" => {
@@ -302,6 +357,18 @@ fn set(key: &str, v: &serde_json::Value) {
     if layout_changed {
         ui::layout();
     }
+    if lang_changed {
+        // Settings, History and Downloads tabs follow at once.
+        broadcast();
+    }
+    if bar_buttons {
+        crate::media::sync_bar();
+        crate::downloads::sync_bar();
+    }
+    if sync_changed {
+        crate::sync::sync_now();
+        refresh_wallet();
+    }
     if autofill_changed {
         let wvs = app::with(|s| s.tabs.iter().filter_map(|t| t.webview.clone()).collect::<Vec<_>>()).unwrap_or_default();
         for w in &wvs {
@@ -314,4 +381,25 @@ fn set(key: &str, v: &serde_json::Value) {
 pub fn set_saved_bar(on: bool) {
     set("saved_bar", &serde_json::Value::Bool(on));
     broadcast();
+}
+
+/// Open Settings pages get the wallet lists and sync status again.
+pub fn refresh_wallet() {
+    let wvs = app::with(|s| {
+        s.tabs
+            .iter()
+            .filter(|t| util::host_of(&t.url) == crate::tabs::SETTINGS_HOST)
+            .filter_map(|t| t.webview.clone())
+            .collect::<Vec<_>>()
+    })
+    .unwrap_or_default();
+    if wvs.is_empty() {
+        return;
+    }
+    let json = crate::vault::list_json().to_string();
+    for w in &wvs {
+        unsafe {
+            let _ = w.PostWebMessageAsJson(&HSTRING::from(json.clone()));
+        }
+    }
 }

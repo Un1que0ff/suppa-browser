@@ -117,6 +117,7 @@ pub fn run() {
         let _ = SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
         crate::popup::init(hwnd);
         crate::extpopup::init(hwnd);
+        ui::apply_icon(hwnd);
 
         let dpi = GetDpiForWindow(hwnd).max(96);
         let settings = settings::load();
@@ -363,6 +364,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                     tabs::save_session_now();
                 } else if wp.0 == TIMER_SLEEP {
                     sleeper::tick(false);
+                } else if wp.0 == TIMER_MEDIA {
+                    crate::media::tick();
+                } else if wp.0 == TIMER_SYNC {
+                    let _ = KillTimer(Some(hwnd), TIMER_SYNC);
+                    crate::sync::sync_now();
                 } else if wp.0 == TIMER_WATCH {
                     // Light up "Update" when something in the scripts folder (or the exe) changed.
                     let _ = KillTimer(Some(hwnd), TIMER_WATCH);
@@ -376,6 +382,16 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 if app::with(|s| s.settings.accent == "windows").unwrap_or(false) {
                     ui::push_theme();
                     crate::settings_page::broadcast();
+                }
+                DefWindowProcW(hwnd, msg, wp, lp)
+            }
+            WM_SETTINGCHANGE => {
+                // "ImmersiveColorSet": Windows light / dark mode changed.
+                if lp.0 != 0 {
+                    let p = windows::core::PCWSTR(lp.0 as *const u16);
+                    if p.to_string().map(|t| t == "ImmersiveColorSet").unwrap_or(false) {
+                        ui::on_windows_theme_changed();
+                    }
                 }
                 DefWindowProcW(hwnd, msg, wp, lp)
             }
@@ -402,6 +418,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             WM_ACTIVATE => {
                 if wp.0 & 0xFFFF != 0 {
                     crate::saved::reload_if_changed();
+                    // Another PC changed the passwords in Dropbox meanwhile?
+                    crate::sync::check_remote();
                 }
                 DefWindowProcW(hwnd, msg, wp, lp)
             }
@@ -472,6 +490,7 @@ pub fn command(id: u16) {
         CMD_TOGGLE_THEME => {
             app::with(|s| {
                 let dark = !s.settings.dark;
+                s.settings.theme_system = false;
                 s.settings.set_dark(dark);
                 s.ui.dark = dark;
                 settings::save(&s.settings);
@@ -525,6 +544,40 @@ pub fn command(id: u16) {
             tabs::new_tab(None, true);
         }
         CMD_CLOSE_TAB => tabs::close_active(),
+        CMD_STAR => crate::saved::toggle_active(),
+        CMD_TOGGLE_SAVED_BAR => {
+            let on = app::with(|s| s.settings.show_saved).unwrap_or(true);
+            crate::settings_page::set_saved_bar(!on);
+        }
+        CMD_OPEN_MENU_KEY => ui::post("{\"type\":\"open_menu\"}".into()),
+        CMD_MUTE_TAB => crate::media::toggle_mute_active(),
+        CMD_MOVE_TAB_LEFT => tabs::move_active(-1),
+        CMD_MOVE_TAB_RIGHT => tabs::move_active(1),
+        CMD_CLOSE_ALL => tabs::close_window(),
+        CMD_OPEN_FILE => tabs::open_file(),
+        CMD_VIEW_SOURCE => tabs::view_source(),
+        CMD_KEEP_AWAKE => tabs::toggle_awake_active(),
+        CMD_PLAYER => ui::post("{\"type\":\"open_player\"}".into()),
+        CMD_GEN_PASSWORD => crate::vault::copy_generated(),
+        CMD_WALLET => tabs::open_settings_at("wallet"),
+        CMD_PASSWORDS => tabs::open_settings_at("passwords"),
+        CMD_SHORTCUTS => menu::show_shortcuts(),
+        CMD_SYNC_DONE => crate::sync::on_done(),
+        CMD_MEDIA_SAVED => crate::savemedia::on_done(),
+        CMD_PLAYER_POPUP => crate::media::show_popup(),
+        CMD_SAVE_VIDEO => crate::savemedia::save_tab(None, false),
+        CMD_SAVE_MP3 => crate::savemedia::save_tab(None, true),
+        CMD_SYNC_NOW => crate::sync::sync_now(),
+        CMD_SYNC_SOON => crate::sync::schedule(),
+        CMD_SYNC_FOLDER => crate::sync::choose_folder(),
+        CMD_TOGGLE_PLAYER_BTN => {
+            app::with(|s| {
+                s.settings.player_button = !s.settings.player_button;
+                settings::save(&s.settings);
+            });
+            crate::media::sync_bar();
+            crate::settings_page::broadcast();
+        }
         CMD_REOPEN_TAB => tabs::reopen_closed(),
         CMD_CLOSE_OTHER_TABS => tabs::close_others(),
         CMD_DUPLICATE_TAB => tabs::duplicate_active(),

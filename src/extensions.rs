@@ -339,6 +339,21 @@ fn remove_now(id: String, handle: ICoreWebView2BrowserExtension, folder: Option<
     }
 }
 
+pub fn pick_folder_titled(title: &str) -> Option<PathBuf> {
+    unsafe {
+        let dlg: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
+        let opts = dlg.GetOptions().ok()?;
+        dlg.SetOptions(opts | FOS_PICKFOLDERS).ok()?;
+        let _ = dlg.SetTitle(&HSTRING::from(title));
+        dlg.Show(Some(app::hwnd())).ok()?;
+        let item = dlg.GetResult().ok()?;
+        let p = item.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
+        let s = p.to_string().ok();
+        windows::Win32::System::Com::CoTaskMemFree(Some(p.0 as *const _));
+        s.map(PathBuf::from)
+    }
+}
+
 fn pick_folder() -> Option<PathBuf> {
     unsafe {
         let dlg: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;

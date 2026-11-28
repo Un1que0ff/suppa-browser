@@ -157,7 +157,7 @@ fn engine_key() -> Result<Vec<u8>, String> {
 }
 
 /// AES-256-GCM with Windows' own crypto (CNG). Returns (ciphertext, tag).
-fn aes_gcm(key: &[u8], nonce: &[u8; 12], data: &[u8], encrypt: bool, tag_in: Option<&[u8]>) -> Result<(Vec<u8>, [u8; 16]), String> {
+pub fn aes_gcm(key: &[u8], nonce: &[u8; 12], data: &[u8], encrypt: bool, tag_in: Option<&[u8]>) -> Result<(Vec<u8>, [u8; 16]), String> {
     unsafe {
         let mut alg = BCRYPT_ALG_HANDLE::default();
         BCryptOpenAlgorithmProvider(&mut alg, BCRYPT_AES_ALGORITHM, None, BCRYPT_OPEN_ALGORITHM_PROVIDER_FLAGS(0)).ok().map_err(|e| e.to_string())?;
@@ -457,11 +457,11 @@ fn write_logins(db: &Path, json: &str) -> Result<(usize, usize), String> {
 const DELETE: &str = "passwords-delete.json";
 
 /// One saved password. `password` is None if it could not be decrypted.
-struct Saved {
-    realm: String,
-    url: String,
-    username: String,
-    password: Option<String>,
+pub struct Saved {
+    pub realm: String,
+    pub url: String,
+    pub username: String,
+    pub password: Option<String>,
 }
 
 /// "v10" + nonce + ciphertext + tag -> the password.
@@ -484,7 +484,7 @@ fn pending_deletes() -> Vec<(String, String)> {
 }
 
 /// Every saved password (minus the ones waiting to be deleted).
-fn read_store() -> Result<Vec<Saved>, String> {
+pub fn read_store() -> Result<Vec<Saved>, String> {
     let db = profile_dir().join("Default").join("Login Data");
     if !db.exists() {
         return Ok(Vec::new());
@@ -551,6 +551,12 @@ pub fn copy(realm: &str, user: &str) -> bool {
 
 /// Deletes one password the next time Suppa starts.
 pub fn delete(realm: &str, user: &str) {
+    // Also gone from Suppa's vault (and from the other PCs through Dropbox).
+    if let Some(o) = origin_of(realm) {
+        if crate::vault::with(|v| v.list("logins").iter().any(|x| crate::vault::s(x, "id") == crate::vault::login_id(&o, user) && !crate::vault::deleted(x))) {
+            crate::vault::forget_login(&o, user);
+        }
+    }
     let mut list = pending_deletes();
     if !list.iter().any(|(r, u)| r == realm && u == user) {
         list.push((realm.to_string(), user.to_string()));
@@ -655,4 +661,44 @@ fn export_confirmed() {
             }
         },
     );
+}
+
+/// Puts logins into the engine's password store at the next start (generated
+/// passwords, passwords that came from Dropbox). They are encrypted for the
+/// engine right away and added to passwords-import.json, like an import, but
+/// without a restart now. `(origin, username, password)`; origin = "https://site.com".
+pub fn queue_logins(list: &[(String, String, String)]) -> Result<usize, String> {
+    if list.is_empty() {
+        return Ok(0);
+    }
+    let key = engine_key()?;
+    let path = util::data_dir().join(PENDING);
+    let mut items: Vec<serde_json::Value> = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v["items"].as_array().cloned())
+        .unwrap_or_default();
+    let mut n = 0;
+    for (origin, user, pass) in list {
+        let Some(origin) = origin_of(origin) else { continue };
+        if pass.is_empty() {
+            continue;
+        }
+        // A newer value for the same site and user replaces the waiting one.
+        items.retain(|it| !(it["origin"].as_str() == Some(origin.as_str()) && it["username"].as_str() == Some(user.as_str())));
+        let enc = encrypt_password(&key, pass)?;
+        items.push(serde_json::json!({
+            "origin": origin, "action": origin, "username": user,
+            "password": base64::engine::general_purpose::STANDARD.encode(enc),
+            "created_ms": util::unix_now() * 1000,
+        }));
+        n += 1;
+    }
+    std::fs::write(&path, serde_json::json!({ "items": items }).to_string()).map_err(|e| e.to_string())?;
+    Ok(n)
+}
+
+/// "https://www.site.com/login" -> "https://www.site.com" (None for other schemes).
+pub fn origin(url: &str) -> Option<String> {
+    origin_of(url)
 }
