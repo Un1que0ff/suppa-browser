@@ -1,0 +1,105 @@
+# Builds Suppa for Windows and Linux and publishes a GitHub release with
+#   SuppaSetup.exe, Suppa-<version>-windows-x64.zip, Suppa-<version>-linux-x64.tar.gz
+# (the in-app updater looks for SuppaSetup.exe).
+#
+# Start it by pushing a tag  v<version>  (the version in Cargo.toml), or from
+# the Actions tab: "Release" -> Run workflow. Release notes come from
+# docs/release-notes/<version>.md (they are also Suppa's "What's new").
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        id: v
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          "version=$v" >> $env:GITHUB_OUTPUT
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable && rustup target add x86_64-pc-windows-msvc
+      - name: Build Suppa.exe and SuppaSetup.exe
+        shell: pwsh
+        run: |
+          # Same flags as build.bat: static C runtime, no local folder paths in the exe.
+          $f = @('-Ctarget-feature=+crt-static', ('--remap-path-prefix=' + (Get-Location).Path + '=.'))
+          $env:CARGO_ENCODED_RUSTFLAGS = $f -join [char]0x1f
+          cargo build --release
+          if ($LASTEXITCODE) { exit 1 }
+          Push-Location installer
+          $f = @('-Ctarget-feature=+crt-static', ('--remap-path-prefix=' + (Split-Path (Get-Location).Path) + '=.'))
+          $env:CARGO_ENCODED_RUSTFLAGS = $f -join [char]0x1f
+          cargo build --release
+          if ($LASTEXITCODE) { exit 1 }
+          Pop-Location
+      - name: Package
+        shell: pwsh
+        run: |
+          $v = "${{ steps.v.outputs.version }}"
+          New-Item -ItemType Directory -Force out/Suppa | Out-Null
+          Copy-Item target/release/Suppa.exe out/Suppa/
+          Copy-Item -Recurse scripts out/Suppa/scripts
+          Compress-Archive -Path out/Suppa -DestinationPath "out/Suppa-$v-windows-x64.zip"
+          Copy-Item installer/target/release/SuppaSetup.exe out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            out/SuppaSetup.exe
+            out/*.zip
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Packages
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev
+      - name: Build
+        run: |
+          rustup toolchain install stable --profile minimal && rustup default stable
+          cd linux
+          CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$GITHUB_WORKSPACE=." cargo build --release
+      - name: Package
+        run: |
+          v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          mkdir -p out/Suppa
+          cp linux/target/release/suppa out/Suppa/suppa
+          cp -r scripts out/Suppa/
+          cp linux/install.sh out/Suppa/install.sh
+          tar -C out -czf "out/Suppa-$v-linux-x64.tar.gz" Suppa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: out/*.tar.gz
+
+  release:
+    needs: [windows, linux]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          notes="docs/release-notes/$v.md"
+          [ -f "$notes" ] || echo "Suppa Browser $v" > "$notes"
+          if gh release view "v$v" >/dev/null 2>&1; then
+            gh release upload "v$v" dist/windows/* dist/linux/* --clobber
+            gh release edit "v$v" --notes-file "$notes"
+          else
+            gh release create "v$v" dist/windows/* dist/linux/* --title "Suppa Browser $v" --notes-file "$notes" --target "$GITHUB_SHA"
+          fi
