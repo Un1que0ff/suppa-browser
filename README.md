@@ -1,5 +1,7 @@
 # Suppa Browser
 
+**English** · [Русский](README.ru.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [中文](README.zh.md)
+
 **A tiny, fast, private web browser for Windows (and now Linux) - a single 3 MB `.exe` with a built-in ad blocker, Chrome extensions, tab groups and a fully customisable interface.**
 
 Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is already part of Windows 10/11 - so pages render exactly like in Chrome/Edge, while Suppa itself stays very small.
@@ -27,6 +29,7 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 - **Tab groups** - drag a tab onto another and hold: they form a coloured, collapsible group.
 - **Saved tabs bar** with folders and drag & drop, a ☆ to save a site in one click.
 - **Your layout** - put tabs, address bar and saved tabs each where you like: top, bottom, or a column on the left/right (e.g. address bar on top, tabs and saved tabs on the left).
+- **Your language** - English, Russian, German, Spanish or Chinese (the Windows language by default; Settings → Appearance → Language).
 - **Your look** - darker / dark / light / lighter theme, a tint over the whole interface, any accent colour (or the Windows accent), every interface colour, round or squircle corners, which tab corners are rounded, five icon styles, interface scale.
 - **Incognito tabs**, tab sorting, drag a tab out into a new window, crash recovery, backup & restore, bookmark import.
 - **Password manager** - see, search, copy and delete saved passwords (Windows Hello or your Windows password is asked first); import them from Firefox, Chrome, Edge or Brave and export them to a `.csv` file.
@@ -144,6 +147,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - ≡ → *Extensions* lists them all (enable/disable, options, show in toolbar, remove) and can load an unpacked folder.
 
 ### Look and layout (Settings)
+- **Language**: English, Русский, Deutsch, Español or 中文 - menus, Settings, the bar and Suppa's pages. *Automatic* (the default) uses the Windows display language, or English if Suppa doesn't have it. Translations are in `scripts\lang.json`.
 - **Theme**: **System** (light or dark like Windows - the default), darker (black), dark, light, lighter (white); **tint**: any colour over the whole interface, 0-60 % (e.g. dark with 20 % red). Accent colour: rainbow per tab, 8 presets, any colour, or **the Windows accent colour** (the default); text on accent: auto / black / white.
 - **Interface scale** 75–150 % (pages keep their own zoom), **corner roundness** 0–20 px, **corner style** round or **squircle** (smooth superellipse corners everywhere, menus included).
 - **Tab corners**: choose which of the four corners of a tab are rounded (or Auto).
@@ -291,6 +295,7 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 | `src/sqlite.rs` | Windows' own SQLite, for the engine's password and history files |
 | `src/sleeper.rs` | Sleeping and unloading background tabs (except tabs kept awake) |
 | `src/vault.rs` / `src/sync.rs` | Addresses, cards, PayPal, generated passwords and filling forms (`scripts/forms.js`) / Dropbox sync and sharing |
+| `src/i18n.rs` | Interface language for menus and dialogs (`scripts/i18n.js` translates the pages; both use `scripts/lang.json`) |
 | `src/media.rs` / `src/savemedia.rs` | Player button and popup, per-tab volume (`scripts/media.js`) / Save video and Save as MP3 |
 | `src/scripts.rs` | The scripts folder, change detection, rebuild |
 | `src/default_browser.rs`, `src/shortcuts.rs`, `src/menu.rs`, `src/util.rs` | Default browser, shortcuts, ≡ menu, helpers |

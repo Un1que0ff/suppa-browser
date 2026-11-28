@@ -608,6 +608,7 @@ pub fn push_theme() {
             "pos": { "tabs": st.tabs_pos, "nav": st.nav_pos, "saved": st.saved_pos },
             "tab_corners": st.tab_corners, "squircle": st.corner_shape == "squircle",
             "theme": st.theme_name(), "icons": st.icon_pack,
+            "lang": crate::i18n::resolve(&st.language),
         })
         .to_string()
     });
@@ -862,7 +863,7 @@ pub fn tab_title(t: &app::Tab) -> String {
     if !t.title.is_empty() {
         t.title.clone()
     } else if newtab::is_newtab(&t.url) {
-        "New Tab".to_string()
+        crate::i18n::tr("New Tab")
     } else {
         util::host_of(&t.url)
     }

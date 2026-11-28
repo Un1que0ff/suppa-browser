@@ -109,6 +109,7 @@
 </head>
 <body>
 <div id="m"></div>
+<script src="i18n.js"></script>
 <script>
 'use strict';
 // Site icons in Suppa's theme (light / dark), not the system's:
@@ -391,7 +392,7 @@ function render() {
       el.appendChild(img);
     }
     const lab = document.createElement('span');
-    lab.className = 'lab';
+    lab.className = 'lab notr';   // labels come translated from Suppa
     lab.textContent = it.l;
     el.appendChild(lab);
     if (it.k) {
@@ -534,6 +535,7 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 window.chrome.webview.addEventListener('message', (e) => {
   const msg = e.data;
   if (msg.type === 'show') {
+    if (window.SuppaI18n) SuppaI18n.set(msg.lang || 'en');
     document.body.classList.toggle('light', !msg.dark);
     document.body.style.setProperty('--accent', msg.accent || '#b07cff');
     document.body.style.setProperty('--on-accent', msg.on_accent === 'black' ? '#1c1c1c' : msg.on_accent === 'white' ? '#ffffff' : onColor(msg.accent));

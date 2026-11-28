@@ -74,6 +74,9 @@ pub struct Settings {
     /// Light or dark follows Windows (Settings -> Personalization -> Colors).
     /// On for new installs; picking a theme yourself turns it off.
     pub theme_system: bool,
+    /// Interface language: "auto" (Windows' language, else English), "en",
+    /// "ru", "de", "es" or "zh" (see i18n.rs, scripts\lang.json).
+    pub language: String,
     /// Tint over the whole interface: "#rrggbb" and how strong in percent (0 = off).
     pub tint: String,
     pub tint_amount: i32,
@@ -298,6 +301,7 @@ impl Default for Settings {
             saved_pos: "top".to_string(),
             theme: "dark".to_string(),
             theme_system: true,
+            language: "auto".to_string(),
             tint: "#ff0000".to_string(),
             tint_amount: TINT.1,
             tab_corners: "auto".to_string(),
@@ -389,6 +393,7 @@ pub fn load() -> Settings {
             "restore_session" => s.restore_session = v != "0",
             "theme" => s.set_theme(v),
             "theme_system" => s.theme_system = v != "0",
+            "language" => s.language = if v.is_empty() { "auto".to_string() } else { v.to_string() },
             "tint" => s.tint = valid_tint(v),
             "tint_amount" => s.tint_amount = clamp_row(v.parse().unwrap_or(TINT.1), TINT),
             "tab_corners" => s.tab_corners = valid_tab_corners(v),
@@ -475,7 +480,7 @@ pub fn save(s: &Settings) {
     out.push_str(&format!("sleep_minutes={}\n", s.sleep_minutes));
     out.push_str(&format!("discard_minutes={}\n", s.discard_minutes));
     out.push_str(&format!("restore_session={}\n", s.restore_session as u8));
-    out.push_str(&format!("theme={}\ntheme_system={}\n", s.theme_name(), s.theme_system as u8));
+    out.push_str(&format!("theme={}\ntheme_system={}\nlanguage={}\n", s.theme_name(), s.theme_system as u8, s.language));
     out.push_str(&format!("tint={}\ntint_amount={}\n", s.tint, s.tint_amount));
     out.push_str(&format!("tab_corners={}\ncorner_shape={}\nicon_pack={}\n", s.tab_corners, s.corner_shape, s.icon_pack));
     out.push_str(&format!("home={}\n", s.home));

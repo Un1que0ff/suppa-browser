@@ -114,10 +114,10 @@ fn with_tools(then: impl FnOnce() + Send + 'static) {
         return;
     }
     crate::popup::confirm(
-        "Download the video tools?",
-        "To save videos from streaming sites and to make MP3s, Suppa uses two free programs, yt-dlp and FFmpeg (about 110 MB, from GitHub). They are kept in Suppa's data folder and only run when you save something.",
-        "Download and save",
-        "Cancel",
+        &crate::i18n::tr("Download the video tools?"),
+        &crate::i18n::tr("To save videos from streaming sites and to make MP3s, Suppa uses two free programs, yt-dlp and FFmpeg (about 110 MB, from GitHub). They are kept in Suppa's data folder and only run when you save something."),
+        &crate::i18n::tr("Download and save"),
+        &crate::i18n::tr("Cancel"),
         move || {
             crate::backup::show_notice("Getting the video tools...", "This happens once and takes a minute. Your file is saved right after.");
             std::thread::spawn(move || match get_tools() {

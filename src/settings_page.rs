@@ -164,6 +164,10 @@ pub fn send_state(wv: &ICoreWebView2) {
         // Added separately (one json! this long hits the macro's recursion limit).
         if let Some(m) = j.as_object_mut() {
             m.insert("cookie_mode".into(), st.cookie_mode.clone().into());
+            m.insert("language".into(), st.language.clone().into());
+            m.insert("lang".into(), crate::i18n::resolve(&st.language).into());
+            m.insert("windows_lang".into(), crate::i18n::windows_lang().into());
+            m.insert("languages".into(), serde_json::json!(crate::i18n::names()));
             if st.theme_system {
                 m.insert("theme".into(), "system".into());
             }
@@ -193,6 +197,7 @@ fn set(key: &str, v: &serde_json::Value) {
     let mut layout_changed = false;
     let mut sync_changed = false;
     let mut bar_buttons = false;
+    let mut lang_changed = false;
     app::with(|s| {
         let st = &mut s.settings;
         match key {
@@ -307,6 +312,11 @@ fn set(key: &str, v: &serde_json::Value) {
                 st.cookie_mode = if text == "all" { "all" } else { "necessary" }.to_string();
                 cookies_changed = true;
             }
+            "language" => {
+                st.language = if crate::i18n::LANGS.contains(&text.as_str()) { text.clone() } else { "auto".to_string() };
+                theme_changed = true;
+                lang_changed = true;
+            }
             "fill_forms" => st.fill_forms = b,
             "offer_save" => st.offer_save = b,
             "sync_on" => {
@@ -346,6 +356,10 @@ fn set(key: &str, v: &serde_json::Value) {
     }
     if layout_changed {
         ui::layout();
+    }
+    if lang_changed {
+        // Settings, History and Downloads tabs follow at once.
+        broadcast();
     }
     if bar_buttons {
         crate::media::sync_bar();

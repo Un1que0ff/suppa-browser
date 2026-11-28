@@ -952,6 +952,7 @@ function renderExts(items) {
 window.chrome.webview.addEventListener('message', (e) => {
   const m = e.data;
   if (m.type === 'init') {
+    if (window.SuppaI18n) SuppaI18n.set(m.lang || 'en');   // interface language
     accent = m.accent || 'cycle';
     onAccent = m.on_accent || 'auto';
     applyColors(m.colors);

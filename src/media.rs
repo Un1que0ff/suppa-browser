@@ -139,7 +139,7 @@ fn items() -> Vec<Item> {
     })
     .unwrap_or_default();
     if cards.is_empty() {
-        return vec![Item::new(0, "Nothing is playing").enabled(false)];
+        return vec![Item::new(0, crate::i18n::tr("Nothing is playing")).enabled(false)];
     }
     cards.into_iter().map(Item::card).collect()
 }
@@ -276,7 +276,7 @@ pub fn toggle_mute_active() {
 /// Volume submenu of the tab menu.
 pub fn volume_items(index: usize) -> Vec<Item> {
     let (vol, muted) = app::with(|s| s.tabs.get(index).map(|t| (t.volume, t.muted))).flatten().unwrap_or((100, false));
-    let mut v = vec![Item::new(VOL_MUTE, if muted { "Unmute tab" } else { "Mute tab" }).key("Ctrl+M"), Item::sep()];
+    let mut v = vec![Item::new(VOL_MUTE, if muted { crate::i18n::tr("Unmute tab") } else { crate::i18n::tr("Mute tab") }).key("Ctrl+M"), Item::sep()];
     for p in [100u8, 75, 50, 25, 10] {
         v.push(Item::new(VOL_BASE + p as i64, format!("{p}%")).checked(vol == p));
     }

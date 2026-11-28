@@ -36,6 +36,12 @@ pub fn create_environment(hwnd: HWND) {
     let options: ICoreWebView2EnvironmentOptions = options.into();
     unsafe {
         let _ = options.SetAdditionalBrowserArguments(&HSTRING::from(BROWSER_ARGS));
+        // Chosen interface language: also the engine's own texts (page
+        // right-click menu, form messages). "auto" leaves Windows' language.
+        let setting = app::with(|s| s.settings.language.clone()).unwrap_or_default();
+        if crate::i18n::LANGS.contains(&setting.as_str()) {
+            let _ = options.SetLanguage(&HSTRING::from(setting));
+        }
         if let Ok(o6) = options.cast::<ICoreWebView2EnvironmentOptions6>() {
             let _ = o6.SetAreBrowserExtensionsEnabled(true);
         }
@@ -676,7 +682,7 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                         if !items.is_empty() {
                             items.push(popup::Item::sep());
                         }
-                        items.push(popup::Item::new(OUR_INSPECT, "Inspect element").key("F12"));
+                        items.push(popup::Item::new(OUR_INSPECT, crate::i18n::tr("Inspect element")).key("F12"));
                     }
                     // Right-click on a video / audio, or anywhere on a video page
                     // (YouTube, Vimeo, ...): Save video / Save as MP3.
@@ -693,8 +699,8 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                     }
                     if on_media || crate::savemedia::is_video_page(&page_url) {
                         let mut extra = vec![
-                            popup::Item::new(OUR_SAVE_VIDEO, "Save video"),
-                            popup::Item::new(OUR_SAVE_MP3, "Save as MP3"),
+                            popup::Item::new(OUR_SAVE_VIDEO, crate::i18n::tr("Save video")),
+                            popup::Item::new(OUR_SAVE_MP3, crate::i18n::tr("Save as MP3")),
                             popup::Item::sep(),
                         ];
                         extra.append(&mut items);

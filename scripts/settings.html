@@ -197,6 +197,13 @@
   </div>
 
   <div class="page" id="p-appearance" data-title="Appearance">
+    <section data-win>
+      <h2>Language</h2>
+      <div class="row">
+        <div class="label">Language<small>Language of menus, settings and Suppa's pages. Automatic = the Windows display language. The right-click menu of web pages follows after a restart</small></div>
+        <select id="language" class="notr"></select>
+      </div>
+    </section>
     <section>
       <h2>Theme</h2>
       <div class="row">
@@ -616,6 +623,7 @@
 
 </main>
 <div id="toast" hidden></div>
+<script src="i18n.js"></script>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
@@ -662,6 +670,17 @@ function renderSwatches() {
 }
 
 function render() {
+  const i18nReady = window.SuppaI18n ? SuppaI18n.set(S.lang || 'en') : Promise.resolve();
+  const ls = $('language');
+  if (S.languages && !ls.options.length) {
+    const win = (S.languages.find((x) => x[0] === S.windows_lang) || ['en', 'English'])[1];
+    ls.add(new Option('Automatic (' + win + ')', 'auto'));
+    for (const [code, name] of S.languages) ls.add(new Option(name, code));
+  }
+  ls.value = S.language || 'auto';
+  i18nReady.then(() => {
+    if (ls.options[0]) ls.options[0].text = (window.SuppaI18n ? SuppaI18n.t('Automatic') : 'Automatic') + ' (' + ((S.languages || []).filter((x) => x[0] === S.windows_lang).map((x) => x[1])[0] || 'English') + ')';
+  });
   document.body.classList.toggle('light', !S.dark);
   // drop-down lists, number fields and scrollbars drawn for the theme (not always light)
   document.documentElement.style.colorScheme = S.dark ? 'dark' : 'light';
@@ -1141,6 +1160,7 @@ $('gen-copy').onclick = () => {
 };
 window.addEventListener('hashchange', () => { if (location.hash) showPage('p-' + location.hash.slice(1)); });
 for (const k of ['sleep', 'discard']) $(k).addEventListener('change', () => set(k, Number($(k).value) || 0));
+$('language').addEventListener('change', () => set('language', $('language').value));
 $('search').addEventListener('change', () => set('search', Number($('search').value)));
 $('home-kind').addEventListener('change', () => {
   const v = $('home-kind').value;

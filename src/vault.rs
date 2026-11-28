@@ -434,7 +434,7 @@ pub fn on_fill_request(target: Target, source: &str, msg: &serde_json::Value, in
                 items.push(Item::new(PICK_ADDRESS + i as i64, address_label(a)));
             }
             if addresses.is_empty() {
-                items.push(Item::new(0, "No saved addresses yet").enabled(false));
+                items.push(Item::new(0, crate::i18n::tr("No saved addresses yet")).enabled(false));
             }
         }
         "card" => {
@@ -444,11 +444,11 @@ pub fn on_fill_request(target: Target, source: &str, msg: &serde_json::Value, in
                 items.push(Item::new(PICK_CARD + i as i64, card_label(c)).key(&format!("{}  {}", name, s(c, "exp"))));
             }
             if cards.is_empty() {
-                items.push(Item::new(0, "No saved cards yet").enabled(false));
+                items.push(Item::new(0, crate::i18n::tr("No saved cards yet")).enabled(false));
             }
             if msg["paypal"].as_bool().unwrap_or(false) {
                 items.push(Item::sep());
-                items.push(Item::new(PICK_PAYPAL_BUTTON, "Pay with PayPal instead"));
+                items.push(Item::new(PICK_PAYPAL_BUTTON, crate::i18n::tr("Pay with PayPal instead")));
             }
         }
         "paypal" => {
@@ -456,30 +456,30 @@ pub fn on_fill_request(target: Target, source: &str, msg: &serde_json::Value, in
                 items.push(Item::new(PICK_PAYPAL + i as i64, s(p, "email")).key("PayPal"));
             }
             if paypal.is_empty() {
-                items.push(Item::new(0, "No saved PayPal accounts yet").enabled(false));
+                items.push(Item::new(0, crate::i18n::tr("No saved PayPal accounts yet")).enabled(false));
             }
         }
         "login" | "newpw" => {
             if kind == "newpw" {
                 generated = generate(16);
-                items.push(Item::new(PICK_GENERATE, format!("Use a strong password:  {generated}")).hot(true));
-                items.push(Item::new(0, "Suppa saves it for this site").enabled(false));
+                items.push(Item::new(PICK_GENERATE, crate::i18n::trf("Use a strong password:  {}", &[&generated])).hot(true));
+                items.push(Item::new(0, crate::i18n::tr("Suppa saves it for this site")).enabled(false));
             }
             for (i, l) in logins.iter().enumerate() {
                 let u = s(l, "user");
                 items.push(Item::new(PICK_LOGIN + i as i64, if u.is_empty() { "(no user name)".to_string() } else { u }).key("••••••••"));
             }
             if logins.is_empty() && kind == "login" {
-                items.push(Item::new(0, "No Suppa passwords for this site").enabled(false));
+                items.push(Item::new(0, crate::i18n::tr("No Suppa passwords for this site")).enabled(false));
             }
         }
         _ => return,
     }
     items.push(Item::sep());
     if kind == "login" || kind == "newpw" {
-        items.push(Item::new(PICK_MANAGE_PW, "Manage passwords..."));
+        items.push(Item::new(PICK_MANAGE_PW, crate::i18n::tr("Manage passwords...")));
     } else {
-        items.push(Item::new(PICK_MANAGE, "Manage addresses and payments..."));
+        items.push(Item::new(PICK_MANAGE, crate::i18n::tr("Manage addresses and payments...")));
     }
     // Under the mouse (the key button was just clicked).
     let mut pt = POINT::default();
@@ -576,7 +576,7 @@ pub fn on_form_saved(msg: &serde_json::Value, incognito: bool) {
         if !live("cards").iter().any(|c| s(c, "number") == n) {
             let label = card_label(&card);
             let item = serde_json::Value::Object(card);
-            popup::confirm(&format!("Save {label} in Suppa?"), "Next time Suppa fills it in for you (after Windows Hello). The security code (CVC) is never saved.", "Save card", "Not now", move || {
+            popup::confirm(&crate::i18n::trf("Save {} in Suppa?", &[&label]), &crate::i18n::tr("Next time Suppa fills it in for you (after Windows Hello). The security code (CVC) is never saved."), &crate::i18n::tr("Save card"), &crate::i18n::tr("Not now"), move || {
                 put("cards", &item);
             });
             return;
@@ -589,7 +589,7 @@ pub fn on_form_saved(msg: &serde_json::Value, incognito: bool) {
         if !same && !s(&addr, "street1").is_empty() {
             let label = address_label(&addr);
             let item = serde_json::Value::Object(addr);
-            popup::confirm("Save this address in Suppa?", &label, "Save address", "Not now", move || {
+            popup::confirm(&crate::i18n::tr("Save this address in Suppa?"), &label, &crate::i18n::tr("Save address"), &crate::i18n::tr("Not now"), move || {
                 put("addresses", &item);
             });
         }
@@ -638,7 +638,7 @@ pub fn on_settings_message(wv: &ICoreWebView2, v: &serde_json::Value) {
                     (true, Some(x)) if op == "reveal" => serde_json::json!({ "type": "wallet_reveal", "kind": kind, "id": id, "value": x }),
                     (true, Some(x)) => {
                         let ok = util::set_clipboard(&x);
-                        serde_json::json!({ "type": "pw_toast", "text": if ok { "Copied" } else { "Could not copy" } })
+                        serde_json::json!({ "type": "pw_toast", "text": if ok { crate::i18n::tr("Copied") } else { crate::i18n::tr("Could not copy") } })
                     }
                 };
                 unsafe {

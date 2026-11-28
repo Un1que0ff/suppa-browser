@@ -358,6 +358,7 @@ fn show_ex(key: &str, items: Vec<Item>, anchor: POINT, right: bool, on_pick: Pic
         "squircle": squircle(),
         "colors": app::with(|s| ui::colors_json(&s.settings)).unwrap_or_default(),
         "on_accent": app::with(|s| s.settings.on_accent.clone()).unwrap_or_default(),
+        "lang": crate::i18n::lang(),
     })
     .to_string();
     let ready = with(|p| {
@@ -443,7 +444,7 @@ pub fn message(text: &str) {
         items.push(Item::text(body));
     }
     items.push(Item::sep());
-    items.push(Item::new(1, "OK").hot(true));
+    items.push(Item::new(1, crate::i18n::tr("OK")).hot(true));
     show("dialog-message", items, POINT::default(), false, |_| {});
 }
 

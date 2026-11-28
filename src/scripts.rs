@@ -10,7 +10,9 @@ use crate::util;
 pub const UI_URL: &str = "https://suppa.ui/ui.html";
 
 /// Default files, built into the exe so a missing folder is recreated.
-const DEFAULTS: [(&str, &str); 16] = [
+const DEFAULTS: [(&str, &str); 18] = [
+    ("i18n.js", include_str!("../scripts/i18n.js")),
+    ("lang.json", include_str!("../scripts/lang.json")),
     ("youtube.js", include_str!("../scripts/youtube.js")),
     ("media.js", include_str!("../scripts/media.js")),
     ("forms.js", include_str!("../scripts/forms.js")),
