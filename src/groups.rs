@@ -304,6 +304,11 @@ pub fn restore(meta: &[String]) {
                         s.next_group = s.next_group.max(id + 1);
                     }
                 }
+                ["#awake", idx] => {
+                    if let Some(t) = idx.parse::<usize>().ok().and_then(|i| s.tabs.get_mut(i)) {
+                        t.awake = true;
+                    }
+                }
                 ["#tabgroup", idx, gid] => {
                     if let (Ok(i), Ok(g)) = (idx.parse::<usize>(), gid.parse::<u32>()) {
                         if let Some(t) = s.tabs.get_mut(i) {

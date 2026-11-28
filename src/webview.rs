@@ -252,9 +252,11 @@ fn setup(id: u32, controller: ICoreWebView2Controller) {
 }
 
 fn add_cookie_script(id: u32, wv: &ICoreWebView2) {
+    let mode = app::with(|s| s.settings.cookie_mode.clone()).unwrap_or_default();
+    let js = format!("window.__suppaCookieMode = {};\n{}", serde_json::Value::from(mode), crate::scripts::cookie_script());
     unsafe {
         let _ = wv.AddScriptToExecuteOnDocumentCreated(
-            &HSTRING::from(crate::scripts::cookie_script()),
+            &HSTRING::from(js),
             &AddScriptToExecuteOnDocumentCreatedCompletedHandler::create(Box::new(move |res, sid| {
                 if res.is_ok() {
                     app::with(|s| {
@@ -278,19 +280,19 @@ pub fn apply_cookie_setting() {
     })
     .unwrap_or((false, Vec::new()));
     for (id, wv, sid) in tabs {
-        match (on, sid) {
-            (true, None) => add_cookie_script(id, &wv),
-            (false, Some(sid)) => {
-                unsafe {
-                    let _ = wv.RemoveScriptToExecuteOnDocumentCreated(&HSTRING::from(sid));
-                }
-                app::with(|s| {
-                    if let Some(t) = s.tab_mut(id) {
-                        t.cookie_script_id = None;
-                    }
-                });
+        // Removed and added again, so a changed mode (necessary / all) applies too.
+        if let Some(sid) = sid {
+            unsafe {
+                let _ = wv.RemoveScriptToExecuteOnDocumentCreated(&HSTRING::from(sid));
             }
-            _ => {}
+            app::with(|s| {
+                if let Some(t) = s.tab_mut(id) {
+                    t.cookie_script_id = None;
+                }
+            });
+        }
+        if on {
+            add_cookie_script(id, &wv);
         }
     }
 }
@@ -336,6 +338,18 @@ fn configure(wv: &ICoreWebView2) {
             &HSTRING::from(crate::scripts::read_text("webstore.js")),
             None::<&ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>,
         );
+        // Media info + this tab's own volume (scripts\media.js), and Suppa's
+        // address / card / password filling (scripts\forms.js).
+        let _ = wv.AddScriptToExecuteOnDocumentCreated(
+            &HSTRING::from(crate::scripts::read_text("media.js")),
+            None::<&ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>,
+        );
+        if app::with(|s| s.settings.fill_forms).unwrap_or(true) {
+            let _ = wv.AddScriptToExecuteOnDocumentCreated(
+                &HSTRING::from(crate::scripts::read_text("forms.js")),
+                None::<&ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>,
+            );
+        }
         // Your own scripts from scripts\userscripts\*.js
         for script in crate::scripts::user_scripts() {
             let _ = wv.AddScriptToExecuteOnDocumentCreated(
@@ -395,6 +409,7 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                 })
                 .flatten();
                 let Some((enabled, old)) = r else { return Ok(()) };
+                crate::media::on_navigation_starting(id);
                 if let Some(old) = old {
                     let _ = sender.RemoveScriptToExecuteOnDocumentCreated(&HSTRING::from(old));
                 }
@@ -498,6 +513,9 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                 .flatten();
                 // YouTube ad skipper, in case the per-page script came too late
                 // for this page (the script runs only once per page).
+                if let Some(w) = &sender {
+                    crate::media::on_navigated(id, w);
+                }
                 if let (Some(sender), Some(page)) = (sender, page) {
                     if let Some(js) = adblock::youtube_late_script(&page) {
                         let _ = sender.ExecuteScript(&HSTRING::from(js), None::<&ICoreWebView2ExecuteScriptCompletedHandler>);
@@ -609,6 +627,9 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                     return Ok(());
                 }
                 let msg = get_str(|p| args.TryGetWebMessageAsString(p));
+                if page_message(id, &sender, &url, &msg) {
+                    return Ok(());
+                }
                 // "Add to Suppa" on the Chrome Web Store (only trusted from that site).
                 if let Some(rest) = msg.strip_prefix("suppa-ext-install:") {
                     if util::host_of(&url) == "chromewebstore.google.com" && url.starts_with("https://") {
@@ -657,6 +678,28 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                         }
                         items.push(popup::Item::new(OUR_INSPECT, "Inspect element").key("F12"));
                     }
+                    // Right-click on a video / audio, or anywhere on a video page
+                    // (YouTube, Vimeo, ...): Save video / Save as MP3.
+                    let (mut media_src, mut page_url, mut on_media) = (String::new(), String::new(), false);
+                    if let Ok(tg) = args.ContextMenuTarget() {
+                        let mut kind = COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND::default();
+                        let _ = tg.Kind(&mut kind);
+                        on_media = kind == COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND_VIDEO || kind == COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND_AUDIO;
+                        let mut has = BOOL(0);
+                        if on_media && tg.HasSourceUri(&mut has).is_ok() && has.as_bool() {
+                            media_src = get_str(|p| tg.SourceUri(p));
+                        }
+                        page_url = get_str(|p| tg.PageUri(p));
+                    }
+                    if on_media || crate::savemedia::is_video_page(&page_url) {
+                        let mut extra = vec![
+                            popup::Item::new(OUR_SAVE_VIDEO, "Save video"),
+                            popup::Item::new(OUR_SAVE_MP3, "Save as MP3"),
+                            popup::Item::sep(),
+                        ];
+                        extra.append(&mut items);
+                        items = extra;
+                    }
                     let mut pt = windows::Win32::Foundation::POINT::default();
                     let _ = args.Location(&mut pt);
                     let deferral = args.GetDeferral()?;
@@ -670,6 +713,10 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                                     let _ = w.OpenDevToolsWindow();
                                 }
                             }
+                            Some(c @ (OUR_SAVE_VIDEO | OUR_SAVE_MP3)) => {
+                                let (page, src) = (page_url.clone(), media_src.clone());
+                                app::later(move || crate::savemedia::save(page, src, c == OUR_SAVE_MP3));
+                            }
                             Some(cmd) => {
                                 let _ = args.SetSelectedCommandId(cmd as i32);
                             }
@@ -677,6 +724,54 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
                         }
                         let _ = deferral.Complete();
                     });
+                    Ok(())
+                })),
+                &mut token,
+            );
+        }
+
+        // Sound: speaker icon on the tab, the player button.
+        if let Ok(w8) = wv.cast::<ICoreWebView2_8>() {
+            let _ = w8.add_IsDocumentPlayingAudioChanged(
+                &IsDocumentPlayingAudioChangedEventHandler::create(Box::new(move |sender, _| {
+                    if let Some(w) = sender {
+                        crate::media::on_audio(id, &w);
+                    }
+                    Ok(())
+                })),
+                &mut token,
+            );
+            let _ = w8.add_IsMutedChanged(
+                &IsMutedChangedEventHandler::create(Box::new(move |sender, _| {
+                    if let Some(w) = sender {
+                        crate::media::on_audio(id, &w);
+                    }
+                    Ok(())
+                })),
+                &mut token,
+            );
+        }
+
+        // Frames (e.g. a shop's card fields in a payment iframe): their messages
+        // for form filling.
+        if let Ok(w4) = wv.cast::<ICoreWebView2_4>() {
+            let _ = w4.add_FrameCreated(
+                &FrameCreatedEventHandler::create(Box::new(move |_, args| {
+                    let Some(args) = args else { return Ok(()) };
+                    let Ok(frame) = args.Frame() else { return Ok(()) };
+                    let Ok(f2) = frame.cast::<ICoreWebView2Frame2>() else { return Ok(()) };
+                    let mut tok = 0i64;
+                    let f2c = f2.clone();
+                    let _ = f2.add_WebMessageReceived(
+                        &FrameWebMessageReceivedEventHandler::create(Box::new(move |_, args| {
+                            let Some(args) = args else { return Ok(()) };
+                            let url = get_str(|p| args.Source(p));
+                            let msg = get_str(|p| args.TryGetWebMessageAsString(p));
+                            form_message(id, crate::vault::Target::Frame(f2c.clone()), &url, &msg);
+                            Ok(())
+                        })),
+                        &mut tok,
+                    );
                     Ok(())
                 })),
                 &mut token,
@@ -704,6 +799,8 @@ fn register_events(id: u32, controller: &ICoreWebView2Controller, wv: &ICoreWebV
 
 /// Our own "Inspect element" item (when Edge's menu has none).
 const OUR_INSPECT: i64 = 900_000_001;
+const OUR_SAVE_VIDEO: i64 = 900_000_002;
+const OUR_SAVE_MP3: i64 = 900_000_003;
 
 /// Edge's context-menu items -> themed popup items (same command ids).
 fn context_items(coll: &ICoreWebView2ContextMenuItemCollection) -> Vec<popup::Item> {
@@ -846,6 +943,119 @@ fn on_resource_requested(id: u32, args: &ICoreWebView2WebResourceRequestedEventA
                     t.blocked += 1;
                 }
             });
+        }
+    }
+}
+
+/// Messages of Suppa's own page scripts (media.js, forms.js, youtube.js).
+/// Returns true when the message was one of them.
+fn page_message(id: u32, sender: &ICoreWebView2, url: &str, msg: &str) -> bool {
+    if let Some(name) = msg.strip_prefix("suppa-key:") {
+        // Only the tab you are looking at.
+        if app::with(|s| s.is_active(id)).unwrap_or(false) {
+            if let Some(cmd) = shortcuts::page_key(name) {
+                util::post(app::hwnd(), WM_APP_COMMAND, cmd as usize, 0);
+            }
+        }
+        return true;
+    }
+    if let Some(rest) = msg.strip_prefix("suppa-media:") {
+        crate::media::on_page(id, rest);
+        return true;
+    }
+    if let Some(rest) = msg.strip_prefix("suppa-yt-skip:") {
+        // Only from YouTube, with the ad blocker on there.
+        let ok = adblock::is_youtube(&util::host_of(url)) && app::with(|s| adblock_active_for(s, url)).unwrap_or(false);
+        if ok {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(rest) {
+                trusted_click(id, sender, v["x"].as_f64().unwrap_or(-1.0), v["y"].as_f64().unwrap_or(-1.0));
+            }
+        }
+        return true;
+    }
+    form_message(id, crate::vault::Target::Page(sender.clone()), url, msg)
+}
+
+fn form_message(id: u32, target: crate::vault::Target, url: &str, msg: &str) -> bool {
+    let incognito = app::with(|s| s.tab(id).map(|t| t.incognito)).flatten().unwrap_or(false);
+    let json = |rest: &str| serde_json::from_str::<serde_json::Value>(rest).unwrap_or(serde_json::Value::Null);
+    if let Some(rest) = msg.strip_prefix("suppa-fill:") {
+        // One menu at a time (a page cannot flood you with them).
+        if crate::popup::is_open() || !throttle(id, 600) {
+            return true;
+        }
+        let v = json(rest);
+        // Shown after this event (a menu must not open inside a WebView event).
+        let url = url.to_string();
+        app::later(move || crate::vault::on_fill_request(target, &url, &v, incognito));
+        return true;
+    }
+    if let Some(rest) = msg.strip_prefix("suppa-form-save:") {
+        if crate::popup::is_open() || !throttle(id + 0x8000_0000, 10_000) {
+            return true;
+        }
+        let v = json(rest);
+        app::later(move || crate::vault::on_form_saved(&v, incognito));
+        return true;
+    }
+    if let Some(rest) = msg.strip_prefix("suppa-login-submit:") {
+        if !incognito {
+            let v = json(rest);
+            crate::vault::on_login_submit(url, v["user"].as_str().unwrap_or(""));
+        }
+        return true;
+    }
+    false
+}
+
+thread_local! {
+    static LAST_FORM: std::cell::RefCell<Vec<(u32, Instant)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// true at most once per `ms` for this key.
+fn throttle(key: u32, ms: u128) -> bool {
+    LAST_FORM.with(|l| {
+        let mut l = l.borrow_mut();
+        l.retain(|(_, t)| t.elapsed().as_millis() < ms.max(10_000));
+        if l.iter().any(|(k, t)| *k == key && t.elapsed().as_millis() < ms) {
+            return false;
+        }
+        l.retain(|(k, _)| *k != key);
+        l.push((key, Instant::now()));
+        true
+    })
+}
+
+thread_local! {
+    static LAST_SKIP: std::cell::RefCell<Vec<(u32, Instant)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// YouTube's "Skip" button ignores clicks made by scripts, so Suppa clicks it
+/// like a real mouse would (DevTools protocol, x/y in the page's CSS pixels).
+fn trusted_click(id: u32, wv: &ICoreWebView2, x: f64, y: f64) {
+    if x < 0.0 || y < 0.0 {
+        return;
+    }
+    let recent = LAST_SKIP.with(|l| {
+        let mut l = l.borrow_mut();
+        l.retain(|(_, t)| t.elapsed().as_millis() < 800);
+        if l.iter().any(|(i, _)| *i == id) {
+            return true;
+        }
+        l.push((id, Instant::now()));
+        false
+    });
+    if recent {
+        return;
+    }
+    for kind in ["mouseMoved", "mousePressed", "mouseReleased"] {
+        let p = serde_json::json!({ "type": kind, "x": x, "y": y, "button": if kind == "mouseMoved" { "none" } else { "left" }, "clickCount": 1 });
+        unsafe {
+            let _ = wv.CallDevToolsProtocolMethod(
+                w!("Input.dispatchMouseEvent"),
+                &HSTRING::from(p.to_string()),
+                None::<&ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>,
+            );
         }
     }
 }

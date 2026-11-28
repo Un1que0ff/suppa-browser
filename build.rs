@@ -1,7 +1,10 @@
 // Build script:
 //  1. Embeds app.manifest (modern Windows controls + per-monitor DPI).
-//  2. Draws assets\icon.svg into a multi-size Windows icon and compiles it
-//     into Suppa.exe (no separate icon file is needed at runtime).
+//  2. Draws assets\icon.svg into multi-size Windows icons and compiles them
+//     into Suppa.exe (no separate icon file is needed at runtime):
+//     icon 1 = white shape on a see-through background (dark Windows theme,
+//     also the file's icon), icon 2 = black (light Windows theme). Suppa picks
+//     the one for the Windows theme for its window and taskbar button.
 //     Replace assets\icon.svg and rebuild (or press Update) to change the icon.
 //     Supported SVG: <path d="..."> with M/L/H/V/Z commands (straight lines).
 use std::path::{Path, PathBuf};
@@ -9,7 +12,7 @@ use std::path::{Path, PathBuf};
 const SIZES: [u32; 7] = [16, 20, 24, 32, 48, 64, 256];
 /// Badge behind the shape so a black icon stays visible on a dark taskbar.
 /// Set BADGE to None for a transparent background.
-const BADGE: Option<[u8; 4]> = Some([255, 255, 255, 255]); // RGBA
+const BADGE: Option<[u8; 4]> = None; // e.g. Some([255, 255, 255, 255]) (RGBA)
 const SHAPE: [u8; 3] = [0, 0, 0]; // used when the SVG has no fill colour
 const PADDING: f32 = 0.12; // fraction of the icon left around the shape
 /// Invert the colours (shape and badge): black-on-white becomes white-on-black.
@@ -253,15 +256,16 @@ fn rounded_rect_cov(size: u32) -> Vec<f32> {
     out
 }
 
-fn render(shape: &Shape, size: u32) -> Vec<u8> {
+/// `fill`: colour of the shape (None = the SVG's own, inverted if INVERT).
+fn render(shape: &Shape, size: u32, fill: Option<[u8; 3]>) -> Vec<u8> {
     let inv = |c: [u8; 3]| if INVERT { [255 - c[0], 255 - c[1], 255 - c[2]] } else { c };
-    let fill = inv(shape.fill);
+    let fill = fill.unwrap_or_else(|| inv(shape.fill));
     let badge_color = BADGE.map(|b| {
         let c = inv([b[0], b[1], b[2]]);
         [c[0], c[1], c[2], b[3]]
     });
     let (vx, vy, vw, vh) = shape.view;
-    let pad = if BADGE.is_some() { PADDING } else { 0.02 };
+    let pad = if BADGE.is_some() { PADDING } else { 0.04 };
     let inner = size as f32 * (1.0 - 2.0 * pad);
     let scale = inner / vw.max(vh);
     let ox = (size as f32 - vw * scale) / 2.0;
@@ -346,19 +350,22 @@ fn make_res(svg: &str, res: &Path) -> Result<(), String> {
     let shape = parse_svg(svg)?;
     let mut out = Vec::new();
     res_entry(&mut out, 0, 0, 0, &[]); // mandatory empty first entry
-    let mut group = vec![0u8, 0, 1, 0];
-    group.extend_from_slice(&(SIZES.len() as u16).to_le_bytes());
-    for (k, &size) in SIZES.iter().enumerate() {
-        let img = png(&render(&shape, size), size);
-        let id = (k + 1) as u16;
-        res_entry(&mut out, 3, id, 0x1010, &img); // RT_ICON
-        let dim = if size >= 256 { 0 } else { size as u8 };
-        group.extend_from_slice(&[dim, dim, 0, 0]);
-        group.extend_from_slice(&1u16.to_le_bytes()); // planes
-        group.extend_from_slice(&32u16.to_le_bytes()); // bit count
-        group.extend_from_slice(&(img.len() as u32).to_le_bytes());
-        group.extend_from_slice(&id.to_le_bytes());
+    // Group 1: white shape (dark theme), group 2: black shape (light theme).
+    for (gid, colour, first) in [(1u16, [255u8, 255, 255], 1u16), (2, [0, 0, 0], 101)] {
+        let mut group = vec![0u8, 0, 1, 0];
+        group.extend_from_slice(&(SIZES.len() as u16).to_le_bytes());
+        for (k, &size) in SIZES.iter().enumerate() {
+            let img = png(&render(&shape, size, Some(colour)), size);
+            let id = first + k as u16;
+            res_entry(&mut out, 3, id, 0x1010, &img); // RT_ICON
+            let dim = if size >= 256 { 0 } else { size as u8 };
+            group.extend_from_slice(&[dim, dim, 0, 0]);
+            group.extend_from_slice(&1u16.to_le_bytes()); // planes
+            group.extend_from_slice(&32u16.to_le_bytes()); // bit count
+            group.extend_from_slice(&(img.len() as u32).to_le_bytes());
+            group.extend_from_slice(&id.to_le_bytes());
+        }
+        res_entry(&mut out, 14, gid, 0x1030, &group); // RT_GROUP_ICON
     }
-    res_entry(&mut out, 14, 1, 0x1030, &group); // RT_GROUP_ICON, id 1
     std::fs::write(res, out).map_err(|e| e.to_string())
 }

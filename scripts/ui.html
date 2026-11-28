@@ -38,6 +38,10 @@
          accent fills it clockwise from 12 o'clock with the progress; the icon
          turns the on-accent colour where the fill already is. -->
     <button class="nav" id="dl" title="Downloads" hidden><i class="fill"></i><svg viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/></svg><svg class="on" viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/></svg></button>
+    <!-- Player (≡ -> Look and toolbar -> Show player button): shown while a tab
+         plays or has music / a video; opens the player popup (cover, play / pause,
+         next, this tab's own volume). Pulses gently while something plays. -->
+    <button class="nav" id="player" title="Player (Ctrl+Shift+M)" hidden><svg viewBox="0 0 16 16"><path d="M6 12.5V3.5l7-1.5v9"/><circle class="f" cx="4.2" cy="12.5" r="1.8"/><circle class="f" cx="11.2" cy="11" r="1.8"/></svg></button>
     <!-- Extension buttons (click = popup, right-click = options / hide / remove) -->
     <div id="exts"></div>
     <button id="menu" title="Menu: Update, Extensions, Ad blocker, Log, Theme, Settings"><span class="upd">Update</span><svg viewBox="0 0 16 16"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg></button>

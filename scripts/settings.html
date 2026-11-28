@@ -150,6 +150,16 @@
   .reset { height: 26px; padding: 0 10px; font-size: 9pt; }
   .reset[hidden] { display: none; }
   code { font: 9pt Consolas, monospace; color: var(--muted); word-break: break-all; }
+  /* Addresses and payments */
+  .wform { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .wform[hidden] { display: none; }
+  .wform input { width: 100%; }
+  .wbtns { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; }
+  .wrow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); min-height: 46px; }
+  .wrow .what { flex: 1 1 auto; min-width: 0; }
+  .wrow .what b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wrow .what small { display: block; color: var(--muted); font-size: 9pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag { font-size: 8pt; padding: 1px 6px; border-radius: 6px; background: var(--btn); color: var(--muted); margin-left: 6px; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -160,12 +170,39 @@
 <main>
 
   <!-- Each .page is one tab on the left. -->
+  <div class="page" id="p-start" data-title="Start and search">
+    <section>
+      <h2>Start page</h2>
+      <div class="row">
+        <div class="label">New tabs and Home button open</div>
+        <select id="home-kind">
+          <option value="https://www.google.com/">Google</option>
+          <option value="https://suppa.newtab/">Suppa start page</option>
+          <option value="custom">Custom address...</option>
+        </select>
+        <input type="text" id="home-custom" placeholder="https://..." spellcheck="false">
+      </div>
+      <div class="row">
+        <div class="label">Search engine (address bar)</div>
+        <select id="search"></select>
+      </div>
+    </section>
+    <section>
+      <h2>Default browser</h2>
+      <div class="row">
+        <div class="label" id="default-label">Default browser<small id="default-note"></small></div>
+        <button class="primary" id="default-btn" data-action="make_default">Make Suppa the default</button>
+      </div>
+    </section>
+  </div>
+
   <div class="page" id="p-appearance" data-title="Appearance">
     <section>
       <h2>Theme</h2>
       <div class="row">
-        <div class="label">Theme<small>Darker = black background, Lighter = white</small></div>
+        <div class="label">Theme<small>System = light or dark like Windows. Darker = black background, Lighter = white</small></div>
         <div class="seg" id="theme">
+          <button data-v="system">System</button>
           <button data-v="darker">Darker</button>
           <button data-v="dark">Dark</button>
           <button data-v="light">Light</button>
@@ -215,37 +252,6 @@
     </section>
   </div>
 
-  <div class="page" id="p-corners" data-title="Corners">
-    <section>
-      <h2>Shape</h2>
-      <div class="row">
-        <div class="label">Corner roundness<small>Tabs, buttons, address bar, menus and dialogs. 0 = square corners</small></div>
-        <div class="radius-preview" id="radius-preview"></div>
-        <input type="range" id="radius" min="0" max="20" step="1">
-        <span id="radius-val" class="muted" style="width:38px;text-align:right"></span>
-      </div>
-      <div class="row">
-        <div class="label">Corner style<small>Squircle = smooth, Apple-like corners (superellipse) everywhere</small></div>
-        <div class="seg" id="corner_shape">
-          <button data-v="round">Round</button>
-          <button data-v="squircle">Squircle</button>
-        </div>
-      </div>
-    </section>
-    <section>
-      <h2>Tabs</h2>
-      <div class="row">
-        <div class="label">Tab corners<small>Click the corners of the tab that should be rounded. Auto = the ones away from the page</small></div>
-        <div class="tabshape" id="tab-corners">
-          <button data-i="0" title="Top left"></button><button data-i="1" title="Top right"></button>
-          <button data-i="3" title="Bottom left"></button><button data-i="2" title="Bottom right"></button>
-          <div class="tabprev" id="tab-prev"></div>
-        </div>
-        <button class="reset" id="tab-corners-auto">Auto</button>
-      </div>
-    </section>
-  </div>
-
   <div class="page" id="p-layout" data-title="Layout">
     <section>
       <h2>Position</h2>
@@ -263,70 +269,20 @@
     <section>
       <h2>Rows</h2>
       <div class="row">
-        <div class="label">Show saved tabs bar<small>Right-click a tab and choose "Save" to add it</small></div>
+        <div class="label">Show saved tabs bar<small>Right-click a tab and choose "Save" to add it (Ctrl+Shift+B)</small></div>
         <label class="sw"><input type="checkbox" id="saved_bar"><span></span></label>
+      </div>
+      <div class="row" data-win>
+        <div class="label">Show download button<small>Next to the address bar; fills with the accent colour while files download</small></div>
+        <label class="sw"><input type="checkbox" id="dl_button"><span></span></label>
+      </div>
+      <div class="row" data-win>
+        <div class="label">Show player button<small>Next to the download button while a tab plays music or a video: cover or video preview, play / pause, next, and a volume for each tab (Ctrl+Shift+M)</small></div>
+        <label class="sw"><input type="checkbox" id="player_button"><span></span></label>
       </div>
       <div class="row">
         <div class="label">Order of the rows<small>Use the arrows to move a row up or down</small><div id="row-order" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div></div>
         <button class="reset" id="order-reset">Default order</button>
-      </div>
-    </section>
-  </div>
-
-  <div class="page" id="p-colors" data-title="Custom colours">
-    <section>
-      <h2>Colours <span class="muted" id="colors-theme" style="text-transform:none;letter-spacing:0"></span></h2>
-      <div id="color-list"></div>
-      <div class="row">
-        <div class="label">Reset all colours of this theme<small>Light and dark theme keep their own colours. The accent colour is under Appearance.</small></div>
-        <button class="danger" id="colors-reset">Reset all</button>
-      </div>
-    </section>
-  </div>
-
-  <div class="page" id="p-start" data-title="Start and search">
-    <section>
-      <h2>Start page</h2>
-      <div class="row">
-        <div class="label">New tabs and Home button open</div>
-        <select id="home-kind">
-          <option value="https://www.google.com/">Google</option>
-          <option value="https://suppa.newtab/">Suppa start page</option>
-          <option value="custom">Custom address...</option>
-        </select>
-        <input type="text" id="home-custom" placeholder="https://..." spellcheck="false">
-      </div>
-      <div class="row">
-        <div class="label">Search engine (address bar)</div>
-        <select id="search"></select>
-      </div>
-    </section>
-    <section>
-      <h2>Default browser</h2>
-      <div class="row">
-        <div class="label" id="default-label">Default browser<small id="default-note"></small></div>
-        <button class="primary" id="default-btn" data-action="make_default">Make Suppa the default</button>
-      </div>
-    </section>
-  </div>
-
-  <div class="page" id="p-tabs" data-title="Tabs and memory">
-    <section>
-      <h2>Tabs</h2>
-      <div class="row">
-        <div class="label">Reopen tabs from last time</div>
-        <label class="sw"><input type="checkbox" id="restore"><span></span></label>
-      </div>
-    </section>
-    <section>
-      <h2>Memory</h2>
-      <div class="row" data-win>
-        <div class="label">Freeze background tabs after (minutes)<small>Frozen tabs use no CPU</small></div>
-        <input type="number" id="sleep" min="1" max="600">
-      </div>
-      <div class="row">
-        <div class="label">Unload background tabs after (minutes)<small>Frees their memory; 0 = never</small></div>
-        <input type="number" id="discard" min="0" max="1440">
       </div>
     </section>
   </div>
@@ -342,8 +298,15 @@
         <div class="label">Ads allowed on these sites<div class="chips" id="allow"></div></div>
       </div>
       <div class="row">
-        <div class="label">Accept cookie popups automatically<small>Clicks "Accept all" on cookie banners (edit scripts\cookies.js to change how)</small></div>
+        <div class="label">Answer cookie popups automatically<small>Suppa clicks the cookie banner's button for you (edit scripts\cookies.js to change how)</small></div>
         <label class="sw"><input type="checkbox" id="cookies"><span></span></label>
+      </div>
+      <div class="row" id="cookie-mode-row" data-win>
+        <div class="label">Which cookies<small>Only necessary = "Reject all" / "Only necessary" (or the banner's × when it has no such button). Changes apply to newly loaded pages</small></div>
+        <div class="seg" id="cookie_mode" style="flex-wrap:nowrap">
+          <button data-v="necessary">Only necessary</button>
+          <button data-v="all">Accept all</button>
+        </div>
       </div>
     </section>
     <section>
@@ -398,6 +361,47 @@
       <div id="pw-list"></div>
     </section>
     <section>
+      <h2>Strong passwords</h2>
+      <div class="row">
+        <div class="label">Password generator<small>In a sign-up form, Suppa's key button in the password field offers one and saves it for that site. Or make one here (Ctrl+Shift+G copies one)</small></div>
+        <select id="gen-len" title="Length">
+          <option value="12">12</option><option value="16" selected>16</option><option value="20">20</option><option value="24">24</option><option value="32">32</option>
+        </select>
+        <button id="gen-btn" class="primary">Generate</button>
+      </div>
+      <div class="row" id="gen-row" hidden>
+        <code id="gen-out" style="flex:1;font-size:12pt;color:var(--fg);user-select:all"></code>
+        <button class="reset" id="gen-copy">Copy</button>
+      </div>
+    </section>
+    <section>
+      <h2>Suppa's passwords <span class="muted" id="vl-count" style="text-transform:none;letter-spacing:0"></span></h2>
+      <div class="row" style="border-top:none"><div class="label"><small>Generated by Suppa or synced from Dropbox. They fill in with the key button in password fields, and go into the list above when Suppa restarts.</small></div></div>
+      <div id="vl-list"></div>
+    </section>
+    <section>
+      <h2>Sync and share with Dropbox</h2>
+      <div class="row">
+        <div class="label">Sync passwords, addresses and cards<small>Through the Dropbox app on this PC: Suppa keeps one encrypted file in Dropbox\Apps\Suppa. Every PC - and everyone you share that Dropbox folder with - that uses the same passphrase gets the same passwords. Without the passphrase the file is unreadable, also for Dropbox</small></div>
+        <label class="sw"><input type="checkbox" id="sync_on"><span></span></label>
+      </div>
+      <div id="sync-box">
+        <div class="row">
+          <div class="label">Folder<small><code id="sync-folder"></code></small></div>
+          <button class="reset" data-action="sync_folder">Choose folder...</button>
+        </div>
+        <div class="row">
+          <div class="label">Passphrase<small id="sync-pass-note">At least 8 characters. Use the same one on every PC. Suppa cannot recover it.</small></div>
+          <input type="text" id="sync-pass" placeholder="New passphrase" spellcheck="false" autocomplete="off" style="width:200px;-webkit-text-security:disc">
+          <button class="reset" id="sync-pass-btn">Save</button>
+        </div>
+        <div class="row">
+          <div class="label">Status<small id="sync-status"></small></div>
+          <button class="reset primary" data-action="sync_now">Sync now</button>
+        </div>
+      </div>
+    </section>
+    <section>
       <h2>Move passwords</h2>
       <div class="row">
         <div class="label">Import<small>A .csv export from Firefox, Chrome, Edge, Brave, Opera or Vivaldi</small></div>
@@ -414,6 +418,83 @@
     </section>
   </div>
 
+  <div class="page" id="p-wallet" data-title="Addresses and payments" data-win>
+    <section>
+      <h2>Filling forms</h2>
+      <div class="row">
+        <div class="label">Fill in addresses, cards, PayPal and passwords<small>A small key button appears in those fields of web pages; it opens Suppa's own menu, so pages never see what you saved. Applies to newly opened tabs</small></div>
+        <label class="sw"><input type="checkbox" id="fill_forms"><span></span></label>
+      </div>
+      <div class="row">
+        <div class="label">Offer to save new addresses and cards<small>When you send a form with an address or card that is not saved yet</small></div>
+        <label class="sw"><input type="checkbox" id="offer_save"><span></span></label>
+      </div>
+    </section>
+    <section>
+      <h2>Addresses</h2>
+      <div id="addr-list"></div>
+      <div class="row"><div class="label"></div><button class="reset primary" id="addr-add">Add address</button></div>
+      <div id="addr-form" class="wform" hidden>
+        <input type="text" data-f="label" placeholder="Name of this address (Home, Work...)">
+        <input type="text" data-f="name" placeholder="Full name">
+        <input type="text" data-f="company" placeholder="Company">
+        <input type="text" data-f="street1" placeholder="Address line 1">
+        <input type="text" data-f="street2" placeholder="Address line 2">
+        <input type="text" data-f="city" placeholder="City">
+        <input type="text" data-f="region" placeholder="State / region">
+        <input type="text" data-f="zip" placeholder="Postal code">
+        <input type="text" data-f="country" placeholder="Country">
+        <input type="text" data-f="phone" placeholder="Phone">
+        <input type="text" data-f="email" placeholder="E-mail">
+        <div class="wbtns"><button class="reset" data-cancel>Cancel</button><button class="reset primary" data-save="addresses">Save</button></div>
+      </div>
+    </section>
+    <section>
+      <h2>Payment cards</h2>
+      <div class="row" style="border-top:none"><div class="label"><small>Filling or showing a card asks for Windows Hello or your Windows password first. Security codes (CVC) are never saved.</small></div></div>
+      <div id="card-list"></div>
+      <div class="row"><div class="label"></div><button class="reset primary" id="card-add">Add card</button></div>
+      <div id="card-form" class="wform" hidden>
+        <input type="text" data-f="label" placeholder="Name of this card (optional)">
+        <input type="text" data-f="name" placeholder="Name on card">
+        <input type="text" data-f="number" placeholder="Card number" inputmode="numeric" autocomplete="off">
+        <input type="text" data-f="exp" placeholder="MM/YY" maxlength="5">
+        <div class="wbtns"><button class="reset" data-cancel>Cancel</button><button class="reset primary" data-save="cards">Save</button></div>
+      </div>
+    </section>
+    <section>
+      <h2>PayPal</h2>
+      <div class="row" style="border-top:none"><div class="label"><small>Suppa fills your PayPal e-mail on PayPal's sign-in page, and card fields show "Pay with PayPal instead" when a shop offers PayPal.</small></div></div>
+      <div id="pp-list"></div>
+      <div class="row"><div class="label"></div><button class="reset primary" id="pp-add">Add PayPal account</button></div>
+      <div id="pp-form" class="wform" hidden>
+        <input type="text" data-f="email" placeholder="PayPal e-mail">
+        <div class="wbtns"><button class="reset" data-cancel>Cancel</button><button class="reset primary" data-save="paypal">Save</button></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-tabs" data-title="Tabs and memory">
+    <section>
+      <h2>Tabs</h2>
+      <div class="row">
+        <div class="label">Reopen tabs from last time</div>
+        <label class="sw"><input type="checkbox" id="restore"><span></span></label>
+      </div>
+    </section>
+    <section>
+      <h2>Memory</h2>
+      <div class="row" data-win>
+        <div class="label">Freeze background tabs after (minutes)<small>Frozen tabs use no CPU</small></div>
+        <input type="number" id="sleep" min="1" max="600">
+      </div>
+      <div class="row">
+        <div class="label">Unload background tabs after (minutes)<small>Frees their memory; 0 = never</small></div>
+        <input type="number" id="discard" min="0" max="1440">
+      </div>
+    </section>
+  </div>
+
   <div class="page" id="p-extensions" data-title="Extensions" data-win>
     <section>
       <h2>Extensions</h2>
@@ -421,6 +502,48 @@
         <div class="label"><span id="ext-list" class="muted">No extensions</span></div>
         <button data-action="store">Chrome Web Store</button>
         <button data-action="load_unpacked">Load folder...</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-corners" data-title="Corners">
+    <section>
+      <h2>Shape</h2>
+      <div class="row">
+        <div class="label">Corner roundness<small>Tabs, buttons, address bar, menus and dialogs. 0 = square corners</small></div>
+        <div class="radius-preview" id="radius-preview"></div>
+        <input type="range" id="radius" min="0" max="20" step="1">
+        <span id="radius-val" class="muted" style="width:38px;text-align:right"></span>
+      </div>
+      <div class="row">
+        <div class="label">Corner style<small>Squircle = smooth, Apple-like corners (superellipse) everywhere</small></div>
+        <div class="seg" id="corner_shape">
+          <button data-v="round">Round</button>
+          <button data-v="squircle">Squircle</button>
+        </div>
+      </div>
+    </section>
+    <section>
+      <h2>Tabs</h2>
+      <div class="row">
+        <div class="label">Tab corners<small>Click the corners of the tab that should be rounded. Auto = the ones away from the page</small></div>
+        <div class="tabshape" id="tab-corners">
+          <button data-i="0" title="Top left"></button><button data-i="1" title="Top right"></button>
+          <button data-i="3" title="Bottom left"></button><button data-i="2" title="Bottom right"></button>
+          <div class="tabprev" id="tab-prev"></div>
+        </div>
+        <button class="reset" id="tab-corners-auto">Auto</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="p-colors" data-title="Custom colours">
+    <section>
+      <h2>Colours <span class="muted" id="colors-theme" style="text-transform:none;letter-spacing:0"></span></h2>
+      <div id="color-list"></div>
+      <div class="row">
+        <div class="label">Reset all colours of this theme<small>Light and dark theme keep their own colours. The accent colour is under Appearance.</small></div>
+        <button class="danger" id="colors-reset">Reset all</button>
       </div>
     </section>
   </div>
@@ -490,6 +613,7 @@
       </div>
     </section>
   </div>
+
 </main>
 <div id="toast" hidden></div>
 <script>
@@ -497,6 +621,7 @@
 const $ = (id) => document.getElementById(id);
 const post = (m) => window.chrome.webview.postMessage(m);
 const set = (key, value) => post({ cmd: 'set', key, value });
+const SWITCHES = ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar', 'auto_update', 'fill_forms', 'offer_save', 'sync_on', 'dl_button', 'player_button'];
 const COLORS = ['#b07cff', '#4cd37b', '#3cd6e0', '#ffd43b', '#ff8a8a', '#5b9dff', '#ff9a3c', '#ff6fb5'];
 let S = null;
 
@@ -547,7 +672,9 @@ function render() {
   document.body.style.setProperty('--accent', acc);
   document.body.style.setProperty('--on-accent', S.on_accent === 'black' ? '#1c1c1c' : S.on_accent === 'white' ? '#ffffff' : onColor(acc));
   document.querySelectorAll('#on-accent button').forEach((b) => b.classList.toggle('primary', b.dataset.v === (S.on_accent || 'auto')));
-  for (const k of ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar', 'auto_update']) $(k).checked = !!S[k];
+  for (const k of SWITCHES) $(k).checked = !!S[k];
+  $('cookie_mode').querySelectorAll('button').forEach((b) => b.classList.toggle('primary', b.dataset.v === (S.cookie_mode || 'necessary')));
+  $('cookie-mode-row').style.opacity = S.cookies ? '' : '.5';
   renderLook();
   setRadius(S.radius, false);
   if (document.activeElement !== $('ui_scale')) $('ui_scale').value = S.ui_scale;
@@ -808,6 +935,7 @@ function showPage(id) {
   if (history.replaceState) history.replaceState(null, '', '#' + id.slice(2));
   window.scrollTo(0, 0);
   if (id === 'p-passwords') pwRequest('list');
+  if (id === 'p-passwords' || id === 'p-wallet') post({ cmd: 'wallet', op: 'list' });
 }
 showPage(location.hash ? 'p-' + location.hash.slice(1) : (localStorage.getItem('settings-page') || PAGES[0].id));
 
@@ -891,11 +1019,127 @@ window.chrome.webview.addEventListener('message', (e) => {
     renderPw();
   }
   else if (m.type === 'pw_toast') toast(m.text);
+  else if (m.type === 'wallet') { W = m; renderWallet(); }
+  else if (m.type === 'wallet_reveal') {
+    if (m.kind === 'cards') shownCards[m.id] = m.value; else pwShown['v' + m.id] = m.value;
+    renderWallet();
+  }
+  else if (m.type === 'generated') { $('gen-row').hidden = false; $('gen-out').textContent = m.password; }
 });
 
-for (const k of ['adblock', 'cookies', 'passwords', 'autofill', 'restore', 'saved_bar', 'auto_update']) {
+for (const k of SWITCHES) {
   $(k).addEventListener('change', () => set(k, $(k).checked));
 }
+$('cookie_mode').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => set('cookie_mode', b.dataset.v)));
+
+// ---- Addresses and payments, Suppa's passwords, generator, Dropbox ----
+let W = null;
+const wpost = (op, extra) => post(Object.assign({ cmd: 'wallet', op }, extra || {}));
+const shownCards = {};
+function wbtn(text, fn, cls) {
+  const b = document.createElement('button');
+  b.className = 'reset' + (cls ? ' ' + cls : '');
+  b.textContent = text;
+  b.onclick = fn;
+  return b;
+}
+function wrow(title, sub, buttons, tag) {
+  const r = document.createElement('div');
+  r.className = 'wrow';
+  const w = document.createElement('div');
+  w.className = 'what';
+  const b = document.createElement('b');
+  b.textContent = title;
+  if (tag) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = tag; b.appendChild(t); }
+  const sm = document.createElement('small');
+  sm.textContent = sub;
+  w.append(b, sm);
+  r.append(w, ...buttons);
+  return r;
+}
+function openForm(id, item) {
+  const f = $(id);
+  f.hidden = false;
+  f._id = item ? item.id : '';
+  f.querySelectorAll('input').forEach((i) => { i.value = item ? (item[i.dataset.f] || '') : ''; });
+  const num = f.querySelector('[data-f=number]');
+  if (num && item) { num.value = ''; num.placeholder = 'Card number (enter it again to change)'; }
+  f.querySelector('input').focus();
+}
+document.querySelectorAll('.wform').forEach((f) => {
+  f.querySelector('[data-cancel]').onclick = () => { f.hidden = true; };
+  f.querySelector('[data-save]').onclick = () => {
+    const kind = f.querySelector('[data-save]').dataset.save;
+    const item = { id: f._id || '' };
+    f.querySelectorAll('input').forEach((i) => { item[i.dataset.f] = i.value; });
+    if (kind === 'cards' && f._id && !item.number) { toast('Enter the card number again to save changes'); return; }
+    wpost('save', { kind, item });
+    f.hidden = true;
+  };
+});
+$('addr-add').onclick = () => openForm('addr-form');
+$('card-add').onclick = () => openForm('card-form');
+$('pp-add').onclick = () => openForm('pp-form');
+function renderWallet() {
+  if (!W) return;
+  const al = $('addr-list');
+  al.textContent = '';
+  for (const a of W.addresses) {
+    const sub = [a.street1, a.street2, a.zip, a.city, a.country].filter(Boolean).join(', ');
+    al.appendChild(wrow(a.label || a.name || a.street1 || 'Address', (a.label ? a.name + ' · ' : '') + sub, [
+      wbtn('Edit', () => openForm('addr-form', a)),
+      wbtn('Delete', () => wpost('delete', { kind: 'addresses', id: a.id }), 'danger'),
+    ]));
+  }
+  if (!W.addresses.length) al.appendChild(Object.assign(document.createElement('div'), { className: 'pw-empty', textContent: 'No addresses yet.' }));
+  const cl = $('card-list');
+  cl.textContent = '';
+  for (const c of W.cards) {
+    const shown = shownCards[c.id];
+    cl.appendChild(wrow(shown ? shown.replace(/(\d{4})(?=\d)/g, '$1 ') : c.masked, [c.label, c.name, c.exp].filter(Boolean).join(' · '), [
+      wbtn(shown ? 'Hide' : 'Show', () => { if (shown) { delete shownCards[c.id]; renderWallet(); } else wpost('reveal', { kind: 'cards', id: c.id }); }),
+      wbtn('Copy', () => wpost('copy', { kind: 'cards', id: c.id })),
+      wbtn('Edit', () => openForm('card-form', c)),
+      wbtn('Delete', () => wpost('delete', { kind: 'cards', id: c.id }), 'danger'),
+    ]));
+  }
+  if (!W.cards.length) cl.appendChild(Object.assign(document.createElement('div'), { className: 'pw-empty', textContent: 'No cards yet.' }));
+  const pl = $('pp-list');
+  pl.textContent = '';
+  for (const p of W.paypal) pl.appendChild(wrow(p.email, 'PayPal', [wbtn('Delete', () => wpost('delete', { kind: 'paypal', id: p.id }), 'danger')]));
+  const vl = $('vl-list');
+  vl.textContent = '';
+  $('vl-count').textContent = W.logins.length ? '- ' + W.logins.length : '';
+  for (const l of W.logins) {
+    const key = 'v' + l.id;
+    const shown = pwShown[key];
+    const r = wrow(l.site, l.user || '(no user name)', [
+      Object.assign(document.createElement('div'), { className: 'pw-pass' + (shown == null ? ' hidden' : ''), textContent: shown != null ? shown : '••••••••' }),
+      wbtn(shown != null ? 'Hide' : 'Show', () => { if (shown != null) { delete pwShown[key]; renderWallet(); } else wpost('reveal', { kind: 'logins', id: l.id }); }),
+      wbtn('Copy', () => wpost('copy', { kind: 'logins', id: l.id })),
+      wbtn('Delete', () => wpost('delete', { kind: 'logins', id: l.id }), 'danger'),
+    ], l.generated ? 'generated' : '');
+    vl.appendChild(r);
+  }
+  if (!W.logins.length) vl.appendChild(Object.assign(document.createElement('div'), { className: 'pw-empty', textContent: 'None yet.' }));
+  const y = W.sync || {};
+  $('sync-box').style.display = y.on ? '' : 'none';
+  $('sync-folder').textContent = y.folder || (y.dropbox ? '' : 'No Dropbox folder found - install the Dropbox app or choose a folder');
+  $('sync-pass').placeholder = y.has_pass ? 'Passphrase is set - type to change' : 'New passphrase';
+  const ago = y.ago == null ? '' : y.ago < 60 ? ' (just now)' : ' (' + Math.round(y.ago / 60) + ' min ago)';
+  $('sync-status').textContent = y.running ? 'Syncing...' : (y.status ? y.status + ago : 'Not synced yet');
+  $('sync-status').style.color = y.ok === false && y.status ? '#e5534b' : '';
+}
+$('sync-pass-btn').onclick = () => {
+  const v = $('sync-pass').value;
+  $('sync-pass').value = '';
+  wpost('sync_passphrase', { value: v });
+};
+$('gen-btn').onclick = () => wpost('generate', { len: Number($('gen-len').value) });
+$('gen-copy').onclick = () => {
+  navigator.clipboard.writeText($('gen-out').textContent).then(() => toast('Copied'), () => toast('Could not copy'));
+};
+window.addEventListener('hashchange', () => { if (location.hash) showPage('p-' + location.hash.slice(1)); });
 for (const k of ['sleep', 'discard']) $(k).addEventListener('change', () => set(k, Number($(k).value) || 0));
 $('search').addEventListener('change', () => set('search', Number($('search').value)));
 $('home-kind').addEventListener('change', () => {
@@ -907,9 +1151,10 @@ $('home-custom').addEventListener('change', () => { if ($('home-custom').value.t
 document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => post({ cmd: 'action', name: b.dataset.action })));
 // Fresh values whenever the tab is shown again (theme may have changed from the menu).
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { pwShown = {}; renderPw(); return; }
+  if (document.hidden) { pwShown = {}; for (const k in shownCards) delete shownCards[k]; renderPw(); renderWallet(); return; }
   post({ cmd: 'get' });
   if (page === 'p-passwords') pwRequest('list');
+  if (page === 'p-passwords' || page === 'p-wallet') post({ cmd: 'wallet', op: 'list' });
 });
 post({ cmd: 'get' });
 </script>

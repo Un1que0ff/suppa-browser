@@ -37,6 +37,8 @@ pub struct Item {
     /// Dialog text: bold heading / wrapping paragraph (not clickable).
     pub heading: bool,
     pub para: bool,
+    /// Custom content drawn by menu.html instead of a plain row (the player card).
+    pub extra: serde_json::Value,
 }
 
 impl Item {
@@ -84,6 +86,10 @@ impl Item {
         self.drag = true;
         self
     }
+    /// A player card (see menu.html): `data` = {kind: "player", ...}.
+    pub fn card(data: serde_json::Value) -> Self {
+        Item { extra: data, enabled: true, ..Default::default() }
+    }
     pub fn ctx(mut self, items: Vec<Item>) -> Self {
         self.ctx = items;
         self
@@ -92,7 +98,7 @@ impl Item {
         serde_json::json!({
             "id": self.id, "l": self.label, "k": self.key, "i": self.icon,
             "c": self.checked, "e": self.enabled, "s": self.sep, "h": self.hot, "d": self.drag,
-            "H": self.heading, "P": self.para,
+            "H": self.heading, "P": self.para, "x": self.extra,
             "sub": self.sub.iter().map(Item::json).collect::<Vec<_>>(),
             "ctx": self.ctx.iter().map(Item::json).collect::<Vec<_>>(),
         })
@@ -107,6 +113,7 @@ fn items_json(items: &[Item]) -> serde_json::Value {
 
 type PickFn = Box<dyn FnOnce(Option<i64>)>;
 type ReorderFn = Box<dyn FnMut(usize, usize)>;
+type ActFn = Box<dyn FnMut(&serde_json::Value)>;
 
 #[derive(Default)]
 struct Popup {
@@ -117,6 +124,8 @@ struct Popup {
     queued: Option<String>,
     on_pick: Option<PickFn>,
     on_reorder: Option<ReorderFn>,
+    /// Buttons and sliders inside a card (they don't close the popup).
+    on_act: Option<ActFn>,
     anchor: POINT,
     right: bool,
     /// Dialog: centred on the browser window instead of hanging from `anchor`.
@@ -299,6 +308,24 @@ pub fn show_reorder(
     show_ex(key, items, anchor, right, Box::new(on_pick), Some(Box::new(on_reorder)));
 }
 
+/// Like `show`, and cards in it send actions to `on_act` while it stays open.
+pub fn show_cards(
+    key: &str,
+    items: Vec<Item>,
+    anchor: POINT,
+    right: bool,
+    on_pick: impl FnOnce(Option<i64>) + 'static,
+    on_act: impl FnMut(&serde_json::Value) + 'static,
+) {
+    show_ex(key, items, anchor, right, Box::new(on_pick), None);
+    with(|p| p.on_act = Some(Box::new(on_act)));
+}
+
+/// Key of the open popup ("" when none is open).
+pub fn open_key() -> String {
+    with(|p| if p.visible || p.on_pick.is_some() { p.key.clone() } else { String::new() }).unwrap_or_default()
+}
+
 fn show_ex(key: &str, items: Vec<Item>, anchor: POINT, right: bool, on_pick: PickFn, on_reorder: Option<ReorderFn>) {
     let recently = with(|p| matches!(&p.hidden, Some((k, t)) if k == key && t.elapsed().as_millis() < 350)).unwrap_or(false);
     if recently {
@@ -336,6 +363,7 @@ fn show_ex(key: &str, items: Vec<Item>, anchor: POINT, right: bool, on_pick: Pic
     let ready = with(|p| {
         p.on_pick = Some(on_pick);
         p.on_reorder = on_reorder;
+        p.on_act = None;
         p.anchor = anchor;
         p.right = right;
         p.center = key.starts_with("dialog");
@@ -432,6 +460,16 @@ fn on_message(json: &str) {
         "size" => place(num("w"), num("h")),
         "pick" => finish(Some(num("id") as i64), true),
         "close" => finish(None, true),
+        "act" => {
+            if let Some(Some(mut f)) = with(|p| p.on_act.take()) {
+                f(v.get("data").unwrap_or(&serde_json::Value::Null));
+                with(|p| {
+                    if p.on_act.is_none() && p.on_pick.is_some() {
+                        p.on_act = Some(f);
+                    }
+                });
+            }
+        }
         c @ ("reorder" | "drag_out") => {
             if let Some(Some(mut f)) = with(|p| p.on_reorder.take()) {
                 // to == DROPPED_OUTSIDE: the item was let go outside the menu.
@@ -515,6 +553,7 @@ fn finish(result: Option<i64>, activate_main: bool) {
     let Some((hwnd, f, ctrl)) = with(|p| {
         p.visible = false;
         p.on_reorder = None;
+        p.on_act = None;
         p.hidden = if activate_main { None } else { Some((p.key.clone(), Instant::now())) };
         (p.hwnd, p.on_pick.take(), p.controller.clone())
     }) else {

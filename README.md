@@ -15,8 +15,14 @@ Written in Rust on top of Microsoft **WebView2**, the Chromium engine that is al
 - **Light on CPU and RAM** - background tabs fall asleep and unload automatically; about **0.1 % of one CPU core** when idle.
 - **Private** - no account, no telemetry, no analytics. Suppa itself never sends anything about you anywhere (details below).
 - **Ad and tracker blocker built in** - Brave's ad-block engine with EasyList, EasyPrivacy, uBlock filters and quick fixes and cookie-banner lists, plus your own rules.
-- **YouTube ads skipped** - ads that still get through are muted, jumped to their end and skipped automatically; ad slots in the feed and next to videos are hidden.
-- **Cookie popups handled for you** - "Accept all" is clicked automatically (can be turned off).
+- **YouTube ads skipped** - ads that still get through are muted, jumped to their end and their **Skip** button is pressed for you (with a real click, which YouTube accepts); ad slots in the feed and next to videos are hidden.
+- **Cookie popups handled for you** - **only necessary cookies** by default ("Reject all"), or "Accept all" if you prefer (Settings → Privacy; can be turned off).
+- **Addresses, cards and PayPal** - save several addresses, payment cards and PayPal accounts (typed in Settings or saved from a form you send) and fill them in with one click; cards need Windows Hello first, security codes are never stored.
+- **Strong passwords** - sign-up forms get a generated password like `A%$3G&8^ga12Kq` that Suppa fills in and saves for that site.
+- **Sync and share with Dropbox** (optional) - passwords, addresses and cards in one file encrypted with your passphrase, through the Dropbox app; every PC or person with the same folder and passphrase gets them.
+- **Player and per-tab volume** - a player button next to the downloads shows what plays (album cover from Spotify / Tidal, a small video preview from YouTube) with play / pause, next, and a volume slider for each tab, independent of the Windows volume. Tabs show a speaker you can click to mute.
+- **Save video / Save as MP3** - right-click a video (or a YouTube page) and save it, or just its sound as an MP3.
+- **Keep a tab awake** - tabs you choose never fall asleep in the background.
 - **Chrome extensions** - install from the Chrome Web Store with **Add to Suppa**, with buttons and popups next to the address bar.
 - **Tab groups** - drag a tab onto another and hold: they form a coloured, collapsible group.
 - **Saved tabs bar** with folders and drag & drop, a ☆ to save a site in one click.
@@ -88,6 +94,9 @@ The only connections Suppa itself makes:
 | Only when you click **Add to Suppa** | clients2.google.com | download that extension from the Chrome Web Store |
 | Once a day (can be turned off in Settings → Update and files), and when you click **Check for updates** | api.github.com, github.com | read the newest Suppa version number and its release notes; download the update when you click **Update now** |
 | What you type in the address bar | the search engine you chose (Google, DuckDuckGo, Bing, Brave) | your search |
+| Only the first time you use **Save video / Save as MP3** (you are asked first), then a yt-dlp update check at most once a week when you save something | github.com | download yt-dlp and FFmpeg into Suppa's data folder (`tools\`) |
+
+**Dropbox sync** (off unless you turn it on) makes no connection itself: Suppa writes one file into your Dropbox folder and the Dropbox app syncs it. The file is encrypted with your passphrase (PBKDF2-SHA256 + AES-256-GCM), so Dropbox cannot read it.
 
 Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` requests are switched off, Edge shopping/translate/SmartScreen extras are disabled, incognito tabs keep nothing after closing.
 
@@ -114,7 +123,20 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - Network blocking, cosmetic hiding and anti-ad scriptlets (Brave's `adblock-rust` engine).
 - ≡ → *Ad blocker*: see how many requests were blocked, allow ads on a site, update lists.
 - Your own rules: `scripts\filters\*.txt` (uBlock / AdBlock syntax).
-- Cookie banners: "Accept all" is clicked automatically (many languages). Turn off in Settings.
+- Cookie banners are answered automatically (many languages): **only necessary** cookies by default ("Reject all" / "Only necessary", or the banner's × when it has no such button), or **accept all** - Settings → Privacy. Turn off there too.
+- YouTube: video ads are muted, skipped to their end, and the **Skip** button is clicked with a real (trusted) mouse click, so you never have to press it.
+
+### Addresses, payments and passwords
+- **Settings → Addresses and payments**: add as many addresses (Home, Work, ...), payment cards and PayPal accounts as you like, or let Suppa offer to save them when you send a form. Everything is encrypted for your Windows account (`vault.dat`).
+- In web forms a small **key button** appears in address, card, PayPal and password fields. It opens Suppa's own menu - the page never sees what you saved - and fills in only what you pick. Cards are filled after Windows Hello; the security code (CVC) is never saved. When a shop also offers PayPal, the menu has **Pay with PayPal instead**; on PayPal's sign-in page it fills your PayPal e-mail.
+- **Strong passwords**: in a sign-up form the key button offers a generated password (upper and lower case, digits, symbols). Suppa fills it into both password fields, saves it for the site and puts it into the browser's own password store at the next start. Settings → Passwords has a generator too (`Ctrl+Shift+G` copies one).
+- **Sync and share with Dropbox** (Settings → Passwords, off by default): one file in `Dropbox\Apps\Suppa`, encrypted with your passphrase. Every PC with the same passphrase - and anyone you share that Dropbox folder with - gets the same passwords, addresses and cards; changes are merged per entry and deletions are passed on. Any other synced folder (OneDrive, a USB stick) can be chosen instead.
+
+### Media
+- **Player button** next to the download button (≡ → Look and toolbar → Show player button) while a tab plays: album cover (Spotify, Tidal, SoundCloud, YouTube Music...) or a small live preview of the video (YouTube and most video sites), play / pause, previous / next, mute, and a **volume slider for that tab only** - Windows' volume stays as it is. Click the title to go to the tab. `Ctrl+Shift+M` opens it.
+- Tabs that play show a **speaker** (click = mute, `Ctrl+M`); right-click a tab → **Sound** for mute and 100 / 75 / 50 / 25 / 10 % volume.
+- **Save video / Save as MP3**: right-click a video or audio (or anywhere on a YouTube, Vimeo, SoundCloud... page), the player popup, or ≡ → This page. Plain video files download directly; streaming sites and MP3s use the free tools yt-dlp and FFmpeg, which Suppa downloads once after asking. Files go to your Downloads folder. (Only save what you are allowed to.)
+- **Keep awake**: right-click a tab → *Keep awake* (or ≡ → This page): it is never frozen or unloaded in the background (a small sun shows on the tab).
 
 ### Extensions
 - Open an extension on the Chrome Web Store and click **Add to Suppa** (Suppa downloads and installs it itself).
@@ -122,7 +144,7 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - ≡ → *Extensions* lists them all (enable/disable, options, show in toolbar, remove) and can load an unpacked folder.
 
 ### Look and layout (Settings)
-- **Theme**: darker (black), dark, light, lighter (white); **tint**: any colour over the whole interface, 0-60 % (e.g. dark with 20 % red). Accent colour: rainbow per tab, 8 presets, any colour, or **the Windows accent colour**; text on accent: auto / black / white.
+- **Theme**: **System** (light or dark like Windows - the default), darker (black), dark, light, lighter (white); **tint**: any colour over the whole interface, 0-60 % (e.g. dark with 20 % red). Accent colour: rainbow per tab, 8 presets, any colour, or **the Windows accent colour** (the default); text on accent: auto / black / white.
 - **Interface scale** 75–150 % (pages keep their own zoom), **corner roundness** 0–20 px, **corner style** round or **squircle** (smooth superellipse corners everywhere, menus included).
 - **Tab corners**: choose which of the four corners of a tab are rounded (or Auto).
 - **Icon style**: Line, Bold, Sharp, Filled or Duotone (toolbar, saved tabs, window buttons).
@@ -157,22 +179,34 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 
 ## Keyboard shortcuts
 
+The same keys as Chrome, Edge and Firefox. `F1` (≡ → Help and updates → Keyboard shortcuts) shows them all in Suppa.
+
 | Keys | Action |
 |---|---|
 | `Ctrl+T` / `Ctrl+N` | New tab |
 | `Ctrl+Shift+N` | New incognito tab |
-| `Ctrl+W`, `Ctrl+F4` | Close tab |
+| `Ctrl+W`, `Ctrl+F4` / `Ctrl+Shift+W` | Close tab / close the window |
 | `Ctrl+Shift+T` | Reopen closed tab |
-| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
+| `Ctrl+Tab`, `Ctrl+PgDn` / `Ctrl+Shift+Tab`, `Ctrl+PgUp` | Next / previous tab |
+| `Ctrl+Shift+PgUp` / `Ctrl+Shift+PgDn` | Move the tab left / right |
 | `Ctrl+1` … `Ctrl+9` | Go to tab 1…8 / last tab |
-| `Ctrl+L`, `Alt+D`, `F6` | Address bar (`Ctrl+Enter` turns `name` into `www.name.com`) |
+| `Ctrl+M` | Mute / unmute the tab |
+| `Ctrl+L`, `Alt+D`, `F6`, `Ctrl+E`, `Ctrl+K` | Address bar (`Ctrl+Enter` turns `name` into `www.name.com`) |
 | `F5`, `Ctrl+R` / `Ctrl+F5`, `Ctrl+Shift+R` | Reload / reload without cache |
 | `Alt+Left` / `Alt+Right` / `Alt+Home` | Back / forward / home |
+| `Ctrl+D` / `Ctrl+Shift+B` | Save the page to the saved tabs bar / show or hide that bar |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Zoom in / out / reset |
-| `Alt+S` | Settings |
+| `Alt+S`, `Ctrl+,` | Settings |
+| `Alt+F`, `Alt+E`, `F10` | Open the ≡ menu |
 | `F11` | Full screen |
 | `Ctrl+H` / `Ctrl+J` / `Shift+Esc` | History / downloads / task manager |
-| `Ctrl+P`, `Ctrl+F`, `F12` | Print, find, developer tools |
+| `Ctrl+Shift+M` / `Ctrl+Shift+G` | Player / copy a new strong password |
+| `Ctrl+O` / `Ctrl+U` | Open a file / page source |
+| `Ctrl+Shift+Delete` | Clear browsing data |
+| `Ctrl+P`, `Ctrl+F`, `F12`, `Ctrl+Shift+I` | Print, find, developer tools |
+| `F1` | List of shortcuts |
+
+`Ctrl+D`, `Ctrl+E`, `Ctrl+K`, `Ctrl+M` and `Ctrl+U` go to the page first, like in Chrome: an editor that uses them itself (a link with `Ctrl+K`, underline with `Ctrl+U`) keeps them.
 
 ---
 
@@ -255,10 +289,12 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 | `src/history.rs` / `src/downloads.rs` / `src/pages.rs` | History and start page shortcuts / downloads list and popup / the History and Downloads pages |
 | `src/updater.rs` | Updates from GitHub releases, What's new |
 | `src/sqlite.rs` | Windows' own SQLite, for the engine's password and history files |
-| `src/sleeper.rs` | Sleeping and unloading background tabs |
+| `src/sleeper.rs` | Sleeping and unloading background tabs (except tabs kept awake) |
+| `src/vault.rs` / `src/sync.rs` | Addresses, cards, PayPal, generated passwords and filling forms (`scripts/forms.js`) / Dropbox sync and sharing |
+| `src/media.rs` / `src/savemedia.rs` | Player button and popup, per-tab volume (`scripts/media.js`) / Save video and Save as MP3 |
 | `src/scripts.rs` | The scripts folder, change detection, rebuild |
 | `src/default_browser.rs`, `src/shortcuts.rs`, `src/menu.rs`, `src/util.rs` | Default browser, shortcuts, ≡ menu, helpers |
-| `build.rs` | Embeds the manifest and draws the icon from `assets/icon.svg` |
+| `build.rs` | Embeds the manifest and draws the icon from `assets/icon.svg`: white on a see-through background for a dark Windows theme, black for a light one (Suppa switches with Windows) |
 | `installer/` | `SuppaSetup.exe`: install, update and uninstall, in a window drawn in Suppa's style |
 | `linux/` | Suppa for Linux (GTK + WebKitGTK): same scripts, same settings code (`src/settings.rs`), its own window, tabs, menus and ad-block host code; `linux/build.sh`, `linux/install.sh` |
 

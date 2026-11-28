@@ -74,6 +74,8 @@ function setTheme(isDark, notify) {
 }
 
 // ---------- tabs ----------
+const SND_ON = '<svg viewBox="0 0 16 16"><path d="M2.5 6h2.5l3.5-3v10l-3.5-3H2.5z"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.6a6 6 0 0 1 0 8.8"/></svg>';
+const SND_MUTED = '<svg viewBox="0 0 16 16"><path d="M2.5 6h2.5l3.5-3v10l-3.5-3H2.5z"/><path d="M11 6l4 4M15 6l-4 4"/></svg>';
 const INC_ICON = '<svg class="inc-ico" viewBox="0 0 16 16" fill="currentColor"><path d="M2 7h12l-1.2-3.6A1 1 0 0 0 11.8 3H4.2a1 1 0 0 0-.95.7z"/><circle cx="4.5" cy="11" r="2.3" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="11.5" cy="11" r="2.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.8 10.6h2.4" stroke="currentColor" stroke-width="1.2"/></svg>';
 let tabEls = [];            // live tab elements in order (kept per tab id, never rebuilt)
 const byId = new Map();     // tab id -> element
@@ -87,11 +89,19 @@ function makeTab() {
   el._ico.style.display = 'contents';
   el._title = document.createElement('span');
   el._title.className = 'title';
+  el._awk = document.createElement('span');
+  el._awk.className = 'awk';
+  el._awk.title = 'Kept awake: never sleeps in the background';
+  el._awk.innerHTML = '<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="2.2"/><path d="M6 .8v1.4M6 9.8v1.4M.8 6h1.4M9.8 6h1.4M2.3 2.3l1 1M8.7 8.7l1 1M2.3 9.7l1-1M8.7 3.3l1-1"/></svg>';
+  el._snd = document.createElement('span');
+  el._snd.className = 'snd';
+  el._snd.addEventListener('pointerdown', (e) => e.stopPropagation());
+  el._snd.addEventListener('click', (e) => { e.stopPropagation(); post({ cmd: 'tab_mute', index: el._i }); });
   el._x = document.createElement('span');
   el._x.className = 'x';
   el._x.textContent = '×';
   el._x.title = 'Close tab (Ctrl+W)';
-  el.append(el._ico, el._title, el._x);
+  el.append(el._ico, el._awk, el._title, el._snd, el._x);
   const closeIt = () => {
     frozenW = el.getBoundingClientRect().width;   // keep widths so the next × is under the mouse
     post({ cmd: 'close', index: el._i });
@@ -334,7 +344,14 @@ function renderTabs() {
     el._i = i;
     const g = t.g && groups.get(t.g);
     const cls = 'tab' + (i === state.active ? ' active' : '') + (t.s ? ' ' + t.s : '') + (t.i ? ' inc' : '')
-      + (g ? ' grouped' : '') + (g && g.collapsed ? ' gcollapsed' : '');
+      + (g ? ' grouped' : '') + (g && g.collapsed ? ' gcollapsed' : '')
+      + (t.a ? ' audible' : '') + (t.m ? ' muted' : '') + (t.k ? ' awake' : '');
+    const sndKey = (t.m ? 'm' : 'a') + (t.v === 100 || t.v == null ? '' : t.v);
+    if (el._sndKey !== sndKey) {
+      el._sndKey = sndKey;
+      el._snd.innerHTML = t.m ? SND_MUTED : SND_ON;
+      el._snd.title = (t.m ? 'Muted - click to unmute' : 'Playing sound - click to mute (Ctrl+M)') + (t.v != null && t.v !== 100 ? ' · tab volume ' + t.v + '%' : '');
+    }
     if (el.className !== cls) el.className = cls;
     if (g) {
       el.style.setProperty('--g', g.color);
@@ -1033,6 +1050,20 @@ window.chrome.webview.addEventListener('message', (e) => {
         ? 'Changes are ready (scripts folder or Rust code) - open the menu and click Update'
         : 'Menu: Update, Extensions, Ad blocker, Log, Theme, Settings';
     layoutTabs();
+  } else if (m.type === 'player') {
+    const b = $('player');
+    const wasHidden = b.hidden;
+    b.hidden = !m.show;
+    b.classList.toggle('playing', !!m.playing);
+    b.title = (m.playing ? 'Playing - ' : '') + 'Player (Ctrl+Shift+M)';
+    if (wasHidden !== b.hidden) layoutTabs();
+  } else if (m.type === 'open_player') {
+    // Ctrl+Shift+M: under the player button (or the download button / ≡ when it is hidden).
+    const b = [$('player'), $('dl'), $('menu')].find((x) => !x.hidden);
+    const r = b.getBoundingClientRect();
+    post({ cmd: 'menu', which: 'player', x: r.right, y: r.bottom + 4 });
+  } else if (m.type === 'open_menu') {
+    $('menu').onclick();
   } else if (m.type === 'focus_address') {
     const a = $('addr');
     a.focus();
@@ -1054,6 +1085,10 @@ $('close').onclick = () => run('close_window');
 $('dl').onclick = () => {
   const r = $('dl').getBoundingClientRect();
   post({ cmd: 'menu', which: 'downloads', x: r.right, y: r.bottom + 4 });
+};
+$('player').onclick = () => {
+  const r = $('player').getBoundingClientRect();
+  post({ cmd: 'menu', which: 'player', x: r.right, y: r.bottom + 4 });
 };
 $('menu').onclick = () => {
   const r = $('menu').getBoundingClientRect();

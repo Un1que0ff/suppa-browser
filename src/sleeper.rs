@@ -5,7 +5,8 @@
 //  2. After `sleep_minutes` idle they are suspended (0% CPU).
 //  3. After `discard_minutes` idle they are unloaded completely (renderer
 //     process freed). Clicking the tab reloads it.
-// Tabs playing audio are never put to sleep.
+// Tabs playing audio, and tabs set to "Keep awake" (tab menu, ≡ -> Page), are
+// never put to sleep.
 use std::time::{Duration, Instant};
 
 use webview2_com::Microsoft::Web::WebView2::Win32::*;
@@ -37,7 +38,7 @@ pub fn tick(force: bool) {
         let discard = Duration::from_secs(s.settings.discard_minutes * 60);
         let mut out = Vec::new();
         for (i, t) in s.tabs.iter().enumerate() {
-            if i == s.active && !s.minimized {
+            if (i == s.active && !s.minimized) || t.awake {
                 continue;
             }
             let (Some(c), Some(wv)) = (&t.controller, &t.webview) else { continue };

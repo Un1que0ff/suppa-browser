@@ -74,6 +74,37 @@
   /* keyboard focus: a thin accent ring around the button, its colour unchanged */
   .btn.sel { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px var(--accent); }
   .btn.hot.sel { box-shadow: none; }
+  /* ---- player popup: one card per tab that plays ---- */
+  .card { display: flex; gap: 12px; padding: 10px; width: 360px; border-radius: var(--r-item); }
+  .card + .card { border-top: 1px solid var(--border); border-radius: 0; }
+  .card .art {
+    flex: 0 0 72px; width: 72px; height: 72px; border-radius: var(--r-item); overflow: hidden; cursor: pointer;
+    background: var(--hover); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 26px;
+  }
+  .card.video .art { flex-basis: 128px; width: 128px; }
+  .card .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card .info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .card .t1 { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .card .t1:hover { color: var(--accent); }
+  .card .t2 { color: var(--muted); font-size: 9pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .prog { display: flex; align-items: center; gap: 6px; font-size: 8pt; color: var(--muted); }
+  .card .bar { flex: 1; height: 3px; border-radius: 2px; background: var(--hover); overflow: hidden; }
+  .card .bar i { display: block; height: 100%; background: var(--accent); width: 0; }
+  .card .ctl { display: flex; align-items: center; gap: 2px; margin-top: 2px; }
+  .card .cb {
+    width: 28px; height: 26px; border: none; border-radius: var(--r-item); background: transparent; color: var(--fg);
+    display: flex; align-items: center; justify-content: center; cursor: default; padding: 0; outline: none;
+  }
+  .card .cb:hover { background: var(--hover); }
+  .card .cb:disabled { opacity: .35; }
+  .card .cb.main { background: var(--accent); color: var(--on-accent); }
+  .card .cb svg { width: 14px; height: 14px; fill: currentColor; }
+  .card .cb.stroke svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .card input[type=range] { flex: 1; min-width: 50px; accent-color: var(--accent); height: 16px; margin: 0 2px; }
+  .card .vol { font-size: 8pt; color: var(--muted); width: 30px; text-align: right; }
+  .card .links { display: flex; gap: 10px; font-size: 8.5pt; }
+  .card .links span { color: var(--muted); cursor: pointer; }
+  .card .links span:hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -205,8 +236,125 @@ function renderDialog(items) {
   report();
 }
 
+// ---- player cards ----
+const ICONS = {
+  play: '<svg viewBox="0 0 16 16"><path d="M4.5 2.8v10.4L13 8z"/></svg>',
+  pause: '<svg viewBox="0 0 16 16"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg>',
+  next: '<svg viewBox="0 0 16 16"><path d="M3 3l7 5-7 5zM11 3h2v10h-2z"/></svg>',
+  prev: '<svg viewBox="0 0 16 16"><path d="M13 3L6 8l7 5zM3 3h2v10H3z"/></svg>',
+  snd: '<svg viewBox="0 0 16 16"><path d="M2.5 6h2.5l3.5-3v10l-3.5-3H2.5z"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5"/></svg>',
+  mute: '<svg viewBox="0 0 16 16"><path d="M2.5 6h2.5l3.5-3v10l-3.5-3H2.5z"/><path d="M11 6l4 4M15 6l-4 4"/></svg>',
+};
+let sliding = false;   // a volume slider is being dragged: no re-render under the mouse
+let progTimer = 0;
+const act = (tab, action, value) => post({ cmd: 'act', data: { tab, action, value } });
+const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+function card(x) {
+  const c = document.createElement('div');
+  c.className = 'card' + (x.video ? ' video' : '');
+  const art = document.createElement('div');
+  art.className = 'art';
+  art.title = 'Go to the tab';
+  const src = x.frame || x.art;
+  if (src) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.onerror = () => { img.remove(); art.textContent = '♪'; };
+    art.appendChild(img);
+  } else art.textContent = x.video ? '▶' : '♪';
+  art.onclick = () => { open = false; post({ cmd: 'pick', id: x.tab }); };
+  const info = document.createElement('div');
+  info.className = 'info';
+  const t1 = document.createElement('div');
+  t1.className = 't1';
+  t1.textContent = x.title || 'Playing';
+  t1.title = (x.title || '') + ' - go to the tab';
+  t1.onclick = art.onclick;
+  const t2 = document.createElement('div');
+  t2.className = 't2';
+  t2.textContent = [x.artist, x.album, x.site].filter(Boolean).join(' · ');
+  info.append(t1, t2);
+  if (x.dur > 0) {
+    const pr = document.createElement('div');
+    pr.className = 'prog';
+    const now = document.createElement('span');
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    const fill = document.createElement('i');
+    bar.appendChild(fill);
+    const tot = document.createElement('span');
+    tot.textContent = fmt(x.dur);
+    pr.append(now, bar, tot);
+    info.appendChild(pr);
+    const upd = () => {
+      const pos = Math.min(x.dur, x.pos + (x.playing && x.at ? (Date.now() - x.at) / 1000 : 0));
+      now.textContent = fmt(pos);
+      fill.style.width = (100 * pos / x.dur) + '%';
+    };
+    upd();
+    c._upd = upd;
+  }
+  const ctl = document.createElement('div');
+  ctl.className = 'ctl';
+  const btn = (icon, title, action, cls) => {
+    const b = document.createElement('button');
+    b.className = 'cb' + (cls ? ' ' + cls : '');
+    b.innerHTML = ICONS[icon];
+    b.title = title;
+    b.onclick = () => act(x.tab, action);
+    ctl.appendChild(b);
+    return b;
+  };
+  btn('prev', 'Previous', 'prev');
+  btn(x.playing ? 'pause' : 'play', x.playing ? 'Pause' : 'Play', 'toggle', 'main');
+  btn('next', 'Next', 'next').disabled = !x.next;
+  btn(x.muted ? 'mute' : 'snd', x.muted ? 'Unmute this tab' : 'Mute this tab', 'mute', 'stroke');
+  const r = document.createElement('input');
+  r.type = 'range';
+  r.min = 0; r.max = 100; r.step = 1;
+  r.value = x.vol;
+  r.title = 'Volume of this tab only (Windows volume stays as it is)';
+  const vl = document.createElement('span');
+  vl.className = 'vol';
+  vl.textContent = x.vol + '%';
+  let t = 0;
+  r.addEventListener('pointerdown', () => { sliding = true; });
+  r.addEventListener('input', () => {
+    vl.textContent = r.value + '%';
+    clearTimeout(t);
+    t = setTimeout(() => act(x.tab, 'volume', +r.value), 40);
+  });
+  const done = () => { sliding = false; act(x.tab, 'volume', +r.value); };
+  r.addEventListener('pointerup', done);
+  r.addEventListener('change', done);
+  ctl.append(r, vl);
+  info.appendChild(ctl);
+  const links = document.createElement('div');
+  links.className = 'links';
+  for (const [label, action] of [['Save video', 'save_video'], ['Save as MP3', 'save_mp3']]) {
+    const l = document.createElement('span');
+    l.textContent = label;
+    l.onclick = () => act(x.tab, action);
+    links.appendChild(l);
+  }
+  info.appendChild(links);
+  c.append(art, info);
+  return c;
+}
+
 function render() {
   const p = cur();
+  if (p.items.some((it) => it.x && it.x.kind === 'player')) {
+    m.textContent = '';
+    m.className = '';
+    sel = -1;
+    for (const it of p.items) if (it.x && it.x.kind === 'player') m.appendChild(card(it.x));
+    clearInterval(progTimer);
+    progTimer = setInterval(() => m.querySelectorAll('.card').forEach((c) => c._upd && c._upd()), 1000);
+    report();
+    return;
+  }
+  clearInterval(progTimer);
   m.textContent = '';
   m.className = '';
   sel = -1;
@@ -405,6 +553,7 @@ window.chrome.webview.addEventListener('message', (e) => {
     open = true;
     render();
   } else if (msg.type === 'items') {
+    if (sliding) return;   // the next change shows it
     stack = [{ title: '', items: msg.items }];
     render();
   } else if (msg.type === 'focus') {
@@ -412,6 +561,8 @@ window.chrome.webview.addEventListener('message', (e) => {
     m.focus();
   } else if (msg.type === 'hide') {
     open = false;
+    sliding = false;
+    clearInterval(progTimer);
     stack = [];
     m.textContent = '';
   }

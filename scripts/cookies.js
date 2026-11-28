@@ -1,9 +1,30 @@
-// Suppa Browser - auto-accept cookie banners.
-// Runs on every page (turn off in Settings). Clicks the "Accept all" button of
-// common cookie/consent popups. Edit, then press Update in the browser.
+// Suppa Browser - answers cookie banners for you.
+// Runs on every page (Settings -> Privacy -> Cookie popups):
+//   "necessary" (default): clicks "Reject all" / "Only necessary"; if the banner
+//                has no such button, its close (×) button (= no consent).
+//   "all":       clicks "Accept all".
+// Suppa puts window.__suppaCookieMode in front of this file.
+// Edit, then press Update in the browser.
 (function () {
   if (window.__suppaCookies) return;
   window.__suppaCookies = true;
+  var MODE = window.__suppaCookieMode === 'all' ? 'all' : 'necessary';
+
+  // "Reject" / "only necessary" buttons of known consent tools.
+  var REJECT_SELECTORS = [
+    '#onetrust-reject-all-handler', '.ot-pc-refuse-all-handler', '#CybotCookiebotDialogBodyButtonDecline',
+    '#CybotCookiebotDialogBodyLevelButtonLevelOptinDeclineAll', '#didomi-notice-disagree-button',
+    '.didomi-continue-without-agreeing', 'button[data-testid="uc-deny-all-button"]', '#W0wltc',
+    'button.sp_choice_type_13', '.fc-cta-do-not-consent', '[data-cookiefirst-action="reject"]', '.cky-btn-reject',
+    '.cc-deny', '.cc-dismiss-necessary', '#rejectAllCookies', '#reject-all-cookies', '#cookiescript_reject',
+    '.iubenda-cs-reject-btn', '.osano-cm-denyAll', '#hs-eu-decline-button', '.cmpboxbtnno', '#gdpr-cookie-reject',
+    '.moove-gdpr-infobar-reject-btn', '.cookie-consent-reject-all', '[data-action="reject-all"]', '[data-qa="reject-all"]',
+    'button[aria-label="Reject all"]', 'button[aria-label="Reject all cookies"]', 'button[aria-label="Decline all"]',
+    'button[aria-label="Only necessary"]', '#truste-consent-required', '.qc-cmp2-summary-buttons button[mode="secondary"]:first-child'
+  ];
+  var REJECT_WORDS = /^(reject( all)?( cookies)?|decline( all)?( cookies)?|deny( all)?|refuse( all)?|disagree|i disagree|do not (accept|agree|consent)|don'?t (accept|allow)|no,? thanks|(use )?(only|strictly) (necessary|essential|required)( cookies)?( only)?|(necessary|essential|required) (cookies )?only|accept (only )?(necessary|essential|required)( cookies)?( only)?|allow (only )?(necessary|essential|required)( cookies)?|continue without (accepting|agreeing)|alle ablehnen|ablehnen|nur (notwendige|erforderliche|essenzielle)( cookies)?( akzeptieren| zulassen)?|tout refuser|refuser( tout)?|continuer sans accepter|rechazar( todo| todas)?|solo (necesarias|esenciales)|rifiuta( tutto| tutti)?|solo necessari|atmesti( visus)?|tik (būtini|būtinieji)|отклонить( все)?|только (необходимые|обязательные)|odrzuć( wszystkie)?|tylko niezbędne|alles weigeren|weigeren|alleen noodzakelijk|avvisa alla|endast nödvändiga|hylkää kaikki|rejeitar( tudo| todos)?|apenas necessários|odmítnout vše|pouze nezbytné|reddet)$/i;
+  var CLOSE_SELECTORS = 'button[aria-label*="close" i], button[aria-label*="dismiss" i], button[title*="close" i], [class*="close" i][role="button"], button[class*="close" i]';
+  var closeTries = 0;
 
   // Known consent tools: exact buttons (checked first).
   var SELECTORS = [
@@ -43,20 +64,39 @@
     try { el.click(); done = true; } catch (e) {}
   }
 
+  function shown(el) {
+    var r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
   function scan() {
     if (done || !document.body) return;
-    for (var i = 0; i < SELECTORS.length; i++) {
-      var el = document.querySelector(SELECTORS[i]);
-      if (el) { click(el); return; }
+    var sels = MODE === 'all' ? SELECTORS : REJECT_SELECTORS;
+    var words = MODE === 'all' ? WORDS : REJECT_WORDS;
+    for (var i = 0; i < sels.length; i++) {
+      var el = document.querySelector(sels[i]);
+      if (el && shown(el)) { click(el); return; }
     }
     var cands = document.querySelectorAll('button, [role="button"], a[href="#"], a:not([href]), input[type="button"], input[type="submit"]');
+    var bannerButton = null;
     for (var j = 0; j < cands.length && j < 400; j++) {
       var b = cands[j];
       var text = clean(b.value || b.textContent || b.getAttribute('aria-label'));
-      if (text.length > 40 || !WORDS.test(text)) continue;
-      if (!inContext(b)) continue;
-      click(b);
-      return;
+      if (text.length > 60) continue;
+      if (words.test(text)) {
+        if (!inContext(b)) continue;
+        click(b);
+        return;
+      }
+      if (!bannerButton && WORDS.test(text) && inContext(b) && shown(b)) bannerButton = b;
+    }
+    // Only necessary, but the banner has just "Accept": its × (no consent given).
+    if (MODE === 'necessary' && bannerButton && ++closeTries >= 2) {
+      var box = bannerButton.closest('[role="dialog"],dialog,[aria-modal="true"],aside,div');
+      for (var k = 0; box && k < 4; k++, box = box.parentElement && box.parentElement.closest('div,aside,[role="dialog"]')) {
+        var x = box.querySelector(CLOSE_SELECTORS);
+        if (x && shown(x)) { click(x); return; }
+      }
     }
   }
 

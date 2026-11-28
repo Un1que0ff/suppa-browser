@@ -1,6 +1,8 @@
 // Suppa Browser - YouTube ad skipper. Runs on youtube.com when the ad blocker
 // is on for it (a backstop for ads the filter lists miss):
-//  * a video ad is muted, jumped to its end and its "Skip" button clicked;
+//  * a video ad is muted, jumped to its end and its "Skip" button clicked -
+//    with a real (trusted) mouse click from Suppa, because YouTube ignores
+//    clicks made by scripts on that button;
 //  * ad slots in the feed, search, next to videos and over the player are hidden.
 // Edit, then press "Update" in the browser.
 (function () {
@@ -31,7 +33,25 @@
   if (!addCss()) document.addEventListener('readystatechange', addCss, { once: true });
 
   // Video ads.
-  const SKIP = '.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-slot button, button[id^="skip-button"]';
+  const SKIP = '.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-slot button, '
+    + 'button[id^="skip-button"], .ytp-skip-ad button, [class*="skip-ad-button"], [class*="ad-skip-button"], .videoAdUiSkipButton';
+  // The Skip button, once it can be pressed (it is there but hidden during the countdown).
+  function skipButton(player) {
+    for (const b of player.querySelectorAll(SKIP)) {
+      const r = b.getBoundingClientRect();
+      const cs = getComputedStyle(b);
+      if (r.width > 4 && r.height > 4 && cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0.1 && !b.disabled) return b;
+    }
+    return null;
+  }
+  function pressSkip(player) {
+    const b = skipButton(player);
+    if (!b) return;
+    try { b.click(); } catch (e) {}
+    const r = b.getBoundingClientRect();
+    // Suppa clicks the middle of the button like a real mouse (YouTube ignores script clicks).
+    try { window.chrome.webview.postMessage('suppa-yt-skip:' + JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 })); } catch (e) {}
+  }
   let saved = null;   // the viewer's own sound and speed, put back after the ad
   let watched = null; // the player being watched for ads
   function check() {
@@ -52,7 +72,7 @@
       }
       try { video.playbackRate = 16; } catch (e) {}
       if (video.paused) video.play().catch(() => {});
-      document.querySelectorAll(SKIP).forEach((b) => { try { b.click(); } catch (e) {} });
+      pressSkip(player);
     } else if (!ad && saved !== null) {
       if (video) {
         video.muted = saved.muted;
@@ -62,6 +82,6 @@
     }
   }
   // The player appears later and is replaced on some page changes: look every 0.5 s.
-  setInterval(check, 500);
+  setInterval(check, 400);
   check();
 })();
