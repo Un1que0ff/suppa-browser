@@ -77,7 +77,7 @@ Measured on Windows 10 (WebView2 157), Suppa 0.4, one web page open, 60 s after 
 
 How it stays light:
 
-- **Sleeping tabs** - tabs you haven't looked at for 5 minutes are frozen (0 % CPU); after 30 minutes they are unloaded and free their memory. Clicking the tab loads it again. Tabs playing audio are never put to sleep. (Times can be changed in Settings.)
+- **Sleeping tabs** - tabs you haven't looked at for 5 minutes are frozen (0 % CPU); after 30 minutes they are unloaded and free their memory. Clicking the tab loads it again. Tabs playing audio and tabs kept awake are never put to sleep. (Times can be changed in Settings.)
 - **Lazy restore** - tabs from your last session only load when you click them.
 - **Shared processes** - tabs of the same site share one renderer process; the toolbar and the menus share another.
 - **Nothing runs in the background** - file changes are noticed through Windows change notifications instead of polling; a minimized window renders nothing.
@@ -176,7 +176,8 @@ Extra privacy built in: ads and trackers are blocked, tracking `<a ping>` reques
 - Installed with the setup: **Update now** downloads the new `SuppaSetup.exe` and runs it silently; Suppa closes, updates and opens again with your tabs. A portable copy opens the download page instead.
 - After an update, **What's new** shows that version's release notes from GitHub (also in Settings → Update and files).
 
-### Everything else- Themed menus everywhere (≡, tabs, saved tabs, page right-click) and themed dialogs. Right-click a page → **Inspect element** opens the developer tools on that element.
+### Everything else
+- Themed menus everywhere (≡, tabs, saved tabs, page right-click) and themed dialogs. Right-click a page → **Inspect element** opens the developer tools on that element.
 - Make Suppa your **default browser** (Settings or the prompt on first start).
 - Remembers window size and position, full screen (`F11`), print, DevTools, task manager.
 - Your own user scripts: `scripts\userscripts\*.js` (with `// @match` patterns).
@@ -249,7 +250,7 @@ It installs for your user only (no root): the program in `~/.local/share/suppa-b
 
 **Build it yourself:** `sh linux/build.sh` installs what is missing (Rust, the WebKitGTK development files), then builds `dist/linux/` with `suppa`, `scripts/` and `install.sh`.
 
-Not in the Linux version (yet): Chrome extensions (WebKitGTK has no extension support), saved passwords and form filling, history and downloads pages, updates, backup and bookmark import, the setup program, and freezing background tabs (they are unloaded after the set time instead). On Wayland desktops Suppa runs through XWayland so its menus can be placed exactly.
+Not in the Linux version (yet): Chrome extensions (WebKitGTK has no extension support), saved passwords and form filling, history and downloads pages, updates, backup and bookmark import, the setup program, freezing background tabs (they are unloaded after the set time instead), and the new features of 0.12 (addresses and payments, player, Save video). On Wayland desktops Suppa runs through XWayland so its menus can be placed exactly.
 
 ---
 
@@ -260,10 +261,13 @@ Everything in `scripts\` next to `Suppa.exe` can be edited:
 | File | What it controls |
 |---|---|
 | `ui.html`, `ui.css`, `ui.js` | the toolbar: tabs, window buttons, address bar, saved tabs, colours |
-| `menu.html` | all menus and dialogs |
+| `menu.html` | all menus, dialogs and the player popup |
 | `settings.html` | the Settings tab (groups as tabs on the left: Appearance, Corners, Layout, Custom colours, Start and search, Tabs and memory, Privacy, Passwords, Extensions, Backup and import, Update and files) |
+| `lang.json`, `i18n.js` | the interface translations (Russian, German, Spanish, Chinese) |
 | `cookies.js` | which cookie buttons are clicked |
 | `youtube.js` | the YouTube ad skipper (runs on youtube.com while the ad blocker is on there) |
+| `forms.js` | the key button in forms: addresses, cards, PayPal, passwords |
+| `media.js` | what the player shows and each tab's own volume |
 | `webstore.js` | the Chrome Web Store "Add to Suppa" helper |
 | `newtab.html` | the optional Suppa start page (search and most-used sites) |
 | `history.html`, `downloads.html` | the History and Downloads pages |
@@ -303,6 +307,7 @@ When a file changes, the **≡** button becomes **Update ≡** - click Update an
 | `src/default_browser.rs`, `src/shortcuts.rs`, `src/menu.rs`, `src/util.rs` | Default browser, shortcuts, ≡ menu, helpers |
 | `build.rs` | Embeds the manifest and draws the icon from `assets/icon.svg`: white on a see-through background for a dark Windows theme, black for a light one (Suppa switches with Windows) |
 | `installer/` | `SuppaSetup.exe`: install, update and uninstall, in a window drawn in Suppa's style |
+| `.github/workflows/release.yml` | Builds `SuppaSetup.exe`, the zip and the tar.gz on GitHub and publishes the release |
 | `linux/` | Suppa for Linux (GTK + WebKitGTK): same scripts, same settings code (`src/settings.rs`), its own window, tabs, menus and ad-block host code; `linux/build.sh`, `linux/install.sh` |
 
 ---

@@ -19,7 +19,7 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Version
         id: v
         shell: pwsh
@@ -51,7 +51,7 @@ jobs:
           Copy-Item -Recurse scripts out/Suppa/scripts
           Compress-Archive -Path out/Suppa -DestinationPath "out/Suppa-$v-windows-x64.zip"
           Copy-Item installer/target/release/SuppaSetup.exe out/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: windows
           path: |
@@ -61,7 +61,7 @@ jobs:
   linux:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Packages
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev
       - name: Build
@@ -77,7 +77,7 @@ jobs:
           cp -r scripts out/Suppa/
           cp linux/install.sh out/Suppa/install.sh
           tar -C out -czf "out/Suppa-$v-linux-x64.tar.gz" Suppa
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: linux
           path: out/*.tar.gz
@@ -86,8 +86,8 @@ jobs:
     needs: [windows, linux]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
         with:
           path: dist
       - name: Publish
