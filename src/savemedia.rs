@@ -131,8 +131,8 @@ fn with_tools(then: impl FnOnce() + Send + 'static) {
 fn get_tools() -> Result<(), String> {
     let dir = tools();
     if !ytdlp().exists() {
-        util::download(YTDLP_URL, &dir.join("yt-dlp.part")).map_err(|e| format!("yt-dlp: {e}"))?;
-        std::fs::rename(dir.join("yt-dlp.part"), ytdlp()).map_err(|e| e.to_string())?;
+        // util::download writes to a .part file itself and renames it when complete.
+        util::download(YTDLP_URL, &ytdlp()).map_err(|e| format!("yt-dlp: {e}"))?;
     }
     if !ffmpeg().exists() {
         let zip = dir.join("ffmpeg.zip");
